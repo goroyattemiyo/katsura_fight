@@ -200,6 +200,8 @@
             KS.enemies.SpawnController.reset();
             KS.systems.combo.reset();
             KS.time.elapsed = 0;
+            /* BGM開始 */
+            KS.blessings.startBGM();
 
             /* BUG-6修正: ポインタ位置をプレイヤー初期位置にリセット */
             var playerCenterX = KS.state.player.x + KS.state.player.w / 2;

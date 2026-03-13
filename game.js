@@ -121,6 +121,7 @@ KS.GameState = class GameState {
     triggerGameOver() {
         if (this.current !== KS.GameStates.PLAYING) return;
         this.current = KS.GameStates.GAMEOVER;
+        KS.blessings.stopBGM();
         this.clearEffects();
         if (this.score > this.highScore) {
             this.highScore = this.score;
