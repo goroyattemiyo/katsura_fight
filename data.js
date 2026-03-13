@@ -2,7 +2,7 @@
  * data.js — ゲーム定数、バランステーブル、アセットマニフェスト
  * 読み込み順: 2番目（game.js の後）
  * 責務: 調整可能な全数値の一元管理
- * v1.0.2 — BUG-1: wig_obstacleをMANIFEST追加, BUG-2: applyLogicalSize削除
+ * v1.0.3 — obstacle画像をMANIFESTから削除（エフェクト生成に統一）
  */
 "use strict";
 
@@ -44,7 +44,8 @@
 
     /* ========================================
      * 特殊アイテム定義
-     * DP-1結論: obstacle=専用画像あり、bomb=エフェクト生成
+     * DP-1結論更新: obstacle/bomb ともにエフェクト生成に統一
+     * （wig_obstacle.webp は v1.0.3 で削除済み）
      * ======================================== */
     d.SPECIAL_TYPES = {
         obstacle: {
@@ -111,8 +112,8 @@
 
     /* ========================================
      * 画像マニフェスト
-     * BUG-1修正: wig_obstacleを追加（専用画像あり）
-     * bomb はエフェクト生成のためMANIFESTには含めない
+     * v1.0.3: obstacle を削除（エフェクト生成に統一）
+     * bomb は引き続きエフェクト生成のためMANIFESTには含めない
      * ======================================== */
     d.IMAGE_MANIFEST = {
         /* プレイヤー */
@@ -126,9 +127,6 @@
         wig_bob:       'assets/img/wig_bob.webp',
         wig_afro:      'assets/img/wig_afro.webp',
 
-        /* 特殊: obstacle（専用画像あり） */
-        obstacle:      'assets/img/wig_obstacle.webp',
-
         /* カットイン（喜び） */
         happy_afro:    'assets/img/happy_afro.webp',
         happy_red:     'assets/img/happy_red.webp',
@@ -136,7 +134,5 @@
         happy_bob:     'assets/img/happy_bob.webp',
         happy_blonde:  'assets/img/happy_blonde.webp'
     };
-
-    /* BUG-2修正: applyLogicalSize()をここから削除。boot()内で呼ぶ */
 
 })();
