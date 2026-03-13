@@ -1,113 +1,165 @@
 /**
- * ui.js — HUD（スコア、コンボ、レベル表示）
+ * ui.js — HUD、カットイン、NEXTプレビュー
  * 読み込み順: 7番目
- * 更新: v1.0.1 — カットイン画像キー修正
+ * v1.0.6 — NEXTプレビュー追加
  */
 "use strict";
 
 (function() {
 
-    KS.ui = {
-        drawHUD: function(ctx) {
-            var st = KS.state;
-            var d = KS.data;
+    KS.ui.drawHUD = function(ctx) {
+        var st = KS.state;
+        var d = KS.data;
 
-            ctx.save();
+        ctx.save();
 
-            ctx.font = 'bold 24px Arial';
-            ctx.textAlign = 'left';
-            ctx.fillStyle = '#2c3e50';
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 3;
-            ctx.strokeText('SCORE: ' + st.score, 15, 30);
-            ctx.fillText('SCORE: ' + st.score, 15, 30);
+        /* スコア */
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'left';
+        ctx.shadowColor = 'rgba(0,0,0,0.5)';
+        ctx.shadowBlur = 4;
+        ctx.fillText('SCORE: ' + st.score, 15, 35);
 
-            ctx.font = 'bold 16px Arial';
-            ctx.strokeText('Lv.' + st.difficultyLevel, 15, 55);
-            ctx.fillText('Lv.' + st.difficultyLevel, 15, 55);
+        /* レベル */
+        ctx.font = '16px Arial';
+        ctx.fillText('Lv.' + st.difficultyLevel, 15, 58);
 
-            if (st.comboCount > 0 && st.comboTimer > 0) {
-                var comboAlpha = Math.min(1, st.comboTimer / 30);
-                var mult = d.getComboMultiplier(st.comboCount);
-                var scale = 1 + Math.sin(KS.time.frameCount * 0.1) * 0.1;
-
-                ctx.save();
-                ctx.globalAlpha = comboAlpha;
-                ctx.font = 'bold ' + Math.floor(28 * scale) + 'px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#e74c3c';
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 4;
-
-                var comboText = st.comboCount + ' COMBO! x' + mult;
-                ctx.strokeText(comboText, d.CANVAS_W / 2, 90);
-                ctx.fillText(comboText, d.CANVAS_W / 2, 90);
-                ctx.restore();
-            }
-
-            var stackCount = st.player.stack.length;
-            var maxStack = Math.floor((st.player.y - d.STACK_GAME_OVER_Y) / d.STACK_OFFSET);
-            if (maxStack <= 0) maxStack = 1;
-            var barWidth = 8;
-            var barHeight = 100;
-            var barX = d.CANVAS_W - 25;
-            var barY = 15;
-
-            ctx.fillStyle = 'rgba(0,0,0,0.3)';
-            ctx.fillRect(barX, barY, barWidth, barHeight);
-
-            var fillRatio = Math.min(1, stackCount / maxStack);
-            var fillColor = fillRatio < 0.5 ? '#2ecc71' :
-                            fillRatio < 0.75 ? '#f39c12' : '#e74c3c';
-            var fillH = barHeight * fillRatio;
-            ctx.fillStyle = fillColor;
-            ctx.fillRect(barX, barY + barHeight - fillH, barWidth, fillH);
-
-            ctx.strokeStyle = '#2c3e50';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(barX, barY, barWidth, barHeight);
-
-            ctx.restore();
-        },
-
-        drawCutIn: function(ctx) {
-            var st = KS.state;
-            var ci = st.cutIn;
-            if (!ci.active) return;
-
-            var d = KS.data;
-            var centerX = d.CANVAS_W / 2;
-            var centerY = d.CANVAS_H / 2;
-            var size = 250;
-
-            var alpha = Math.min(1, ci.timer / 10) * 0.3;
-            ctx.fillStyle = 'rgba(255, 255, 255, ' + alpha + ')';
-            ctx.fillRect(0, 0, d.CANVAS_W, d.CANVAS_H);
-
-            ctx.save();
-            var elapsed = d.CUTIN_DURATION - ci.timer;
-            var scale = 1.0 + Math.sin(elapsed * 0.15) * 0.05;
-            ctx.translate(centerX, centerY);
-            ctx.scale(scale, scale);
-
-            /* カットイン画像: happy_<wigType> */
-            var happyKey = 'happy_' + ci.wigType;
-            var img = KS.assets.images[happyKey] || KS.assets.images.playerHappy;
-            if (img) {
-                ctx.drawImage(img, -size / 2, -size / 2, size, size);
-            }
-            ctx.restore();
-
-            ctx.save();
-            ctx.font = 'bold 36px Arial';
-            ctx.fillStyle = '#f1c40f';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 5;
+        /* コンボ表示 */
+        if (st.comboCount > 0 && st.comboTimer > 0) {
+            var comboScale = 1 + Math.sin(KS.time.frameCount * 0.2) * 0.1;
+            var comboAlpha = Math.min(1, st.comboTimer / 30);
+            ctx.globalAlpha = comboAlpha;
+            ctx.font = 'bold ' + Math.floor(20 * comboScale) + 'px Arial';
+            ctx.fillStyle = '#ffd700';
             ctx.textAlign = 'center';
-            ctx.strokeText('NICE COMBO!!', centerX, centerY + size / 2 + 30);
-            ctx.fillText('NICE COMBO!!', centerX, centerY + size / 2 + 30);
-            ctx.restore();
+            ctx.fillText('COMBO x' + st.comboCount, d.CANVAS_W / 2, 80);
+            ctx.globalAlpha = 1;
         }
+
+        ctx.shadowBlur = 0;
+        ctx.restore();
+
+        /* NEXTプレビュー */
+        KS.ui._drawNextPreview(ctx);
+
+        /* スタックバー */
+        KS.ui._drawStackBar(ctx);
+    };
+
+    /* NEXTウィッグ プレビュー */
+    KS.ui._drawNextPreview = function(ctx) {
+        var sc = KS.enemies.SpawnController;
+        var d = KS.data;
+        if (!sc || !sc.nextWigImageKey) return;
+
+        var boxX = d.CANVAS_W - 90;
+        var boxY = 15;
+        var boxW = 75;
+        var boxH = 55;
+
+        ctx.save();
+
+        /* 背景ボックス */
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.beginPath();
+        ctx.moveTo(boxX + 6, boxY);
+        ctx.lineTo(boxX + boxW - 6, boxY);
+        ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + 6);
+        ctx.lineTo(boxX + boxW, boxY + boxH - 6);
+        ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - 6, boxY + boxH);
+        ctx.lineTo(boxX + 6, boxY + boxH);
+        ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - 6);
+        ctx.lineTo(boxX, boxY + 6);
+        ctx.quadraticCurveTo(boxX, boxY, boxX + 6, boxY);
+        ctx.fill();
+
+        /* NEXT ラベル */
+        ctx.fillStyle = '#aaaaaa';
+        ctx.font = 'bold 10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('NEXT', boxX + boxW / 2, boxY + 12);
+
+        /* プレビュー画像 */
+        var img = KS.assets.images[sc.nextWigImageKey];
+        if (img) {
+            var pw = 50;
+            var ph = 27;
+            ctx.drawImage(img, boxX + (boxW - pw) / 2, boxY + 18, pw, ph);
+        } else {
+            ctx.fillStyle = sc.nextIsBomb ? '#f1c40f' : (sc.nextIsObstacle ? '#e74c3c' : '#9b59b6');
+            ctx.fillRect(boxX + 15, boxY + 18, 45, 25);
+            ctx.fillStyle = '#fff';
+            ctx.font = '9px Arial';
+            ctx.fillText(sc.nextWigType || '?', boxX + boxW / 2, boxY + 34);
+        }
+
+        ctx.restore();
+    };
+
+    /* スタック高さバー */
+    KS.ui._drawStackBar = function(ctx) {
+        var st = KS.state;
+        var d = KS.data;
+
+        var barX = d.CANVAS_W - 18;
+        var barY = 80;
+        var barW = 8;
+        var barH = 120;
+
+        var maxStack = Math.floor((d.CANVAS_H - d.PLAYER_GROUND_OFFSET - d.STACK_GAME_OVER_Y) / d.STACK_OFFSET);
+        var fillRatio = Math.min(1, st.player.stack.length / maxStack);
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(barX, barY, barW, barH);
+
+        var fillColor;
+        if (fillRatio < 0.5) fillColor = '#2ecc71';
+        else if (fillRatio < 0.75) fillColor = '#f1c40f';
+        else fillColor = '#e74c3c';
+
+        var fillH = barH * fillRatio;
+        ctx.fillStyle = fillColor;
+        ctx.fillRect(barX, barY + barH - fillH, barW, fillH);
+        ctx.restore();
+    };
+
+    /* カットイン描画 */
+    KS.ui.drawCutIn = function(ctx) {
+        var st = KS.state;
+        var d = KS.data;
+        if (!st.cutIn.active) return;
+
+        ctx.save();
+
+        var progress = 1 - (st.cutIn.timer / d.CUTIN_DURATION);
+        ctx.globalAlpha = Math.max(0, 0.3 * (1 - progress));
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, d.CANVAS_W, d.CANVAS_H);
+
+        ctx.globalAlpha = Math.max(0, 1 - progress * 0.5);
+        var imgKey = 'happy_' + st.cutIn.wigType;
+        var img = KS.assets.images[imgKey] || KS.assets.images['playerHappy'];
+        if (img) {
+            var size = 250 + Math.sin(progress * Math.PI) * 20;
+            ctx.drawImage(img,
+                (d.CANVAS_W - size) / 2,
+                (d.CANVAS_H - size) / 2 - 50,
+                size, size
+            );
+        }
+
+        ctx.globalAlpha = 1;
+        ctx.font = 'bold 36px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#ffd700';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeText('NICE COMBO!!', d.CANVAS_W / 2, d.CANVAS_H / 2 + 100);
+        ctx.fillText('NICE COMBO!!', d.CANVAS_W / 2, d.CANVAS_H / 2 + 100);
+
+        ctx.restore();
     };
 
 })();

@@ -1,46 +1,34 @@
 /**
  * data.js — ゲーム定数、バランステーブル、アセットマニフェスト
  * 読み込み順: 2番目（game.js の後）
- * 責務: 調整可能な全数値の一元管理
- * v1.0.5 — カツラサイズ・位置フィッティング、背景改善
+ * v1.0.6 — スポーンバイアス率追加、STACK_OFFSET調整
  */
 "use strict";
 
 (function() {
     var d = KS.data;
 
-    /* ========================================
-     * Canvas 定数
-     * ======================================== */
+    /* Canvas */
     d.CANVAS_W = 450;
     d.CANVAS_H = 800;
 
-    /* ========================================
-     * プレイヤー定数
-     * ======================================== */
+    /* プレイヤー */
     d.PLAYER_W = 90;
     d.PLAYER_H = 90;
     d.PLAYER_GROUND_OFFSET = 110;
     d.PLAYER_LERP_SPEED = 0.4;
-    /* 頭頂オフセット: プレイヤー画像上端から頭頂までのピクセル数 */
     d.PLAYER_HEAD_TOP_OFFSET = 8;
 
-    /* ========================================
-     * カツラ定数
-     * 実画像比率 677:369 = 1.834:1
-     * 落下時: やや大きめで視認性確保
-     * スタック時: プレイヤー頭にフィットするサイズ
-     * ======================================== */
+    /* カツラ（落下時） */
     d.WIG_W = 80;
     d.WIG_H = 44;
+    /* カツラ（スタック時） */
     d.WIG_STACK_W = 70;
     d.WIG_STACK_H = 38;
-    d.STACK_OFFSET = 22;
+    d.STACK_OFFSET = 30;
     d.STACK_GAME_OVER_Y = 50;
 
-    /* ========================================
-     * カツラタイプ定義
-     * ======================================== */
+    /* カツラタイプ */
     d.WIG_TYPES = [
         { id: 'regent',  name: 'リーゼント', minLevel: 1 },
         { id: 'blonde',  name: 'ブロンド',   minLevel: 1 },
@@ -49,28 +37,16 @@
         { id: 'afro',    name: 'アフロ',     minLevel: 5 }
     ];
 
-    /* ========================================
-     * 特殊アイテム定義
-     * DP-1結論: obstacle/bomb ともにエフェクト生成に統一
-     * ======================================== */
+    /* 特殊アイテム */
     d.SPECIAL_TYPES = {
-        obstacle: {
-            id: 'obstacle',
-            baseImage: 'wig_afro',
-            spawnRate: 0.10,
-            minLevel: 2
-        },
-        bomb: {
-            id: 'bomb',
-            baseImage: 'wig_blonde',
-            spawnRate: 0.08,
-            minLevel: 3
-        }
+        obstacle: { id: 'obstacle', baseImage: 'wig_afro', spawnRate: 0.10, minLevel: 2 },
+        bomb:     { id: 'bomb',     baseImage: 'wig_blonde', spawnRate: 0.08, minLevel: 3 }
     };
 
-    /* ========================================
-     * スコアリングテーブル
-     * ======================================== */
+    /* スポーンバイアス率: 直前キャッチ種と同じものが出る確率 */
+    d.SPAWN_BIAS_RATE = 0.40;
+
+    /* スコアリング */
     d.SCORE = {
         CATCH: 10,
         MATCH_3: 300,
@@ -86,20 +62,15 @@
         return 0;
     };
 
-    /* ========================================
-     * コンボテーブル
-     * ======================================== */
+    /* コンボ */
     d.COMBO_WINDOW = 300;
     d.COMBO_MULTIPLIER = [1, 1.5, 2, 3, 5];
-
     d.getComboMultiplier = function(comboCount) {
         var idx = Math.min(comboCount, d.COMBO_MULTIPLIER.length - 1);
         return d.COMBO_MULTIPLIER[idx];
     };
 
-    /* ========================================
-     * 難易度テーブル
-     * ======================================== */
+    /* 難易度テーブル */
     d.DIFFICULTY_TABLE = [
         { time:   0, fallSpeed: 2.0, spawnInterval: 72, wigTypeCount: 3, level: 1 },
         { time:  30, fallSpeed: 2.5, spawnInterval: 65, wigTypeCount: 3, level: 2 },
@@ -110,24 +81,18 @@
         { time: 240, fallSpeed: 6.0, spawnInterval: 30, wigTypeCount: 5, level: 7 }
     ];
 
-    /* ========================================
-     * 演出定数
-     * ======================================== */
+    /* 演出 */
     d.CUTIN_DURATION = 50;
     d.HAPPY_DURATION = 90;
 
-    /* ========================================
-     * 背景定数
-     * ======================================== */
+    /* 背景 */
     d.BG_GRAD_TOP = '#667eea';
     d.BG_GRAD_BOTTOM = '#764ba2';
     d.GROUND_HEIGHT = 60;
     d.GROUND_COLOR = '#2d1b4e';
     d.GROUND_LINE_COLOR = '#8b5cf6';
 
-    /* ========================================
-     * 画像マニフェスト
-     * ======================================== */
+    /* 画像マニフェスト */
     d.IMAGE_MANIFEST = {
         player:        'assets/img/player.webp',
         playerHappy:   'assets/img/player_happy.webp',
