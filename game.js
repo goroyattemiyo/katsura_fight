@@ -1,8 +1,8 @@
 /**
  * game.js — KS名前空間、GameState、アセットローダー、メインループ
  * 読み込み順: 1番目
- * 責務: グローバル名前空間の定義、ゲーム状態管理、アセット管理、メインループ起動
- * 更新: v1.0.1 — エフェクト画像生成追加
+ * v1.0.2 — BUG-2: boot内でapplyLogicalSize, BUG-4: Canvas保持,
+ *           BUG-3: AudioManager.initSync追加
  */
 "use strict";
 
@@ -21,7 +21,6 @@ window.KS = {
     renderFn: null,
 
     state: null,
-
     canvas: null,
     ctx: null,
 
@@ -86,13 +85,10 @@ KS.GameState = class GameState {
         };
 
         this.fallingWigs = [];
-
         this.score = 0;
         this.highScore = 0;
-
         this.difficultyLevel = 0;
         this.elapsedPlayTime = 0;
-
         this.comboCount = 0;
         this.comboTimer = 0;
 
@@ -102,7 +98,6 @@ KS.GameState = class GameState {
             wigType: null
         };
         this.effects = [];
-
         this.spawnTimer = 0;
     }
 
@@ -175,38 +170,38 @@ KS.AssetLoader = {
 
 /* ========================================
  * エフェクト画像生成
- * C-3対策: ctx.filterをゲームループで使わず、
- * 起動時にオフスクリーンCanvasで1回だけ生成してキャッシュ
- * obstacle = アフロにgrayscale+暗く+紫色調
- * bomb = ブロンドを明るく+金色光彩
+ * BUG-4修正: Canvasオブジェクトをそのまま保持（Imageに変換しない）
+ * DP-1結論: MANIFESTでロード済みのキーはスキップ
  * ======================================== */
 KS.EffectImageGenerator = {
     generate: function() {
-        var d = KS.data;
-
-        /* obstacle: wig_afro を暗い紫に色調変化 */
-        var afroImg = KS.assets.images['wig_afro'];
-        if (afroImg) {
-            KS.assets.images['obstacle'] = KS.EffectImageGenerator._applyFilter(
-                afroImg,
-                'grayscale(0.6) brightness(0.4) contrast(1.5) sepia(0.8) hue-rotate(240deg) saturate(2)'
-            );
+        /* obstacle: MANIFESTに専用画像があればスキップ */
+        if (!KS.assets.images['obstacle']) {
+            var afroImg = KS.assets.images['wig_afro'];
+            if (afroImg) {
+                KS.assets.images['obstacle'] = KS.EffectImageGenerator._applyFilter(
+                    afroImg,
+                    'grayscale(0.6) brightness(0.4) contrast(1.5) sepia(0.8) hue-rotate(240deg) saturate(2)'
+                );
+            }
         }
 
-        /* bomb: wig_blonde を明るく光らせる */
-        var blondeImg = KS.assets.images['wig_blonde'];
-        if (blondeImg) {
-            KS.assets.images['bomb'] = KS.EffectImageGenerator._applyFilter(
-                blondeImg,
-                'brightness(1.6) saturate(2) drop-shadow(0 0 6px #ffd700) drop-shadow(0 0 12px #ffaa00)'
-            );
+        /* bomb: 専用画像なし。常にエフェクト生成 */
+        if (!KS.assets.images['bomb']) {
+            var blondeImg = KS.assets.images['wig_blonde'];
+            if (blondeImg) {
+                KS.assets.images['bomb'] = KS.EffectImageGenerator._applyFilter(
+                    blondeImg,
+                    'brightness(1.6) saturate(2) drop-shadow(0 0 6px #ffd700) drop-shadow(0 0 12px #ffaa00)'
+                );
+            }
         }
     },
 
+    /* BUG-4修正: Canvasオブジェクトを直接返す（drawImageで即時利用可能） */
     _applyFilter: function(sourceImg, filterStr) {
-        var offCanvas = document.createElement('canvas');
-        /* 解像度を2倍にしてdrop-shadowの余白を確保 */
         var padding = 20;
+        var offCanvas = document.createElement('canvas');
         offCanvas.width = sourceImg.naturalWidth + padding * 2;
         offCanvas.height = sourceImg.naturalHeight + padding * 2;
         var offCtx = offCanvas.getContext('2d');
@@ -215,23 +210,53 @@ KS.EffectImageGenerator = {
         offCtx.drawImage(sourceImg, padding, padding, sourceImg.naturalWidth, sourceImg.naturalHeight);
         offCtx.filter = 'none';
 
-        /* CanvasをImageに変換してキャッシュ */
-        var resultImg = new Image();
-        resultImg.src = offCanvas.toDataURL('image/png');
-        return resultImg;
+        /* Imageに変換せず、Canvasをそのまま返す */
+        return offCanvas;
     }
 };
 
 /* ========================================
  * オーディオ管理
+ * BUG-3修正: initSync（同期版）を追加。DP-3結論反映
  * ======================================== */
 KS.AudioManager = {
+    /**
+     * initSync — ユーザージェスチャー内で同期的に呼ぶ版
+     * iOS Safari のジェスチャーコンテキストを失わないために、
+     * await せずに AudioContext 生成と resume() を発火する
+     */
+    initSync: function() {
+        if (KS.audio.initialized) return;
+        try {
+            var AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            if (!KS.audio.ctx) {
+                KS.audio.ctx = new AudioCtx();
+            }
+            if (KS.audio.ctx.state === 'suspended') {
+                /* resume() の Promise は取得するが await しない */
+                KS.audio.ctx.resume().then(function() {
+                    KS.audio.initialized = true;
+                });
+            } else {
+                KS.audio.initialized = true;
+            }
+        } catch (e) {
+            console.warn('[AudioManager] initSync failed:', e);
+        }
+    },
+
+    /**
+     * init — 非同期版（boot等のタイミングで使う）
+     */
     init: function() {
         if (KS.audio.initialized) return Promise.resolve();
         try {
             var AudioCtx = window.AudioContext || window.webkitAudioContext;
             if (!AudioCtx) return Promise.resolve();
-            KS.audio.ctx = new AudioCtx();
+            if (!KS.audio.ctx) {
+                KS.audio.ctx = new AudioCtx();
+            }
             if (KS.audio.ctx.state === 'suspended') {
                 return KS.audio.ctx.resume().then(function() {
                     KS.audio.initialized = true;
@@ -240,7 +265,7 @@ KS.AudioManager = {
             KS.audio.initialized = true;
             return Promise.resolve();
         } catch (e) {
-            console.warn('[AudioManager] Init failed:', e);
+            console.warn('[AudioManager] init failed:', e);
             return Promise.resolve();
         }
     },
@@ -282,6 +307,7 @@ KS.CanvasManager = {
     },
 
     applyLogicalSize: function() {
+        if (!KS.canvas) return;
         KS.canvas.width = KS.data.CANVAS_W;
         KS.canvas.height = KS.data.CANVAS_H;
         KS.CanvasManager.resize();
@@ -386,28 +412,39 @@ KS.MainLoop = {
 
 /* ========================================
  * ブートシーケンス
+ * BUG-2修正: Canvas初期化→applyLogicalSizeの順序を保証
  * ======================================== */
 KS.boot = function() {
+    /* 1. Canvas初期化（DOMからcanvas要素を取得） */
     KS.CanvasManager.init();
 
+    /* 2. Canvas論理サイズ適用（BUG-2修正: data.jsからここに移動） */
+    KS.CanvasManager.applyLogicalSize();
+
+    /* 3. GameState生成 */
     KS.state = new KS.GameState();
 
+    /* 4. ハイスコア読み込み */
     try {
         var saved = localStorage.getItem('ks_highscore');
         if (saved) KS.state.highScore = parseInt(saved, 10) || 0;
     } catch (e) {}
 
+    /* 5. 入力初期化 */
     KS.InputManager.init();
 
+    /* 6. アセット読み込み */
     if (KS.data.IMAGE_MANIFEST) {
         KS.AssetLoader.loadAll(KS.data.IMAGE_MANIFEST).then(function() {
-            /* アセットロード完了後にエフェクト画像を生成 */
+            /* 7. エフェクト画像生成（DP-1: 専用画像優先、なければ生成） */
             KS.EffectImageGenerator.generate();
+            /* 8. TITLE画面へ */
             KS.state.current = KS.GameStates.TITLE;
         });
     } else {
         KS.state.current = KS.GameStates.TITLE;
     }
 
+    /* 9. メインループ開始（ローディング画面を表示するため、ロード完了前に開始） */
     KS.MainLoop.start();
 };

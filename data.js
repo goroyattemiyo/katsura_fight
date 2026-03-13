@@ -2,8 +2,7 @@
  * data.js — ゲーム定数、バランステーブル、アセットマニフェスト
  * 読み込み順: 2番目（game.js の後）
  * 責務: 調整可能な全数値の一元管理
- * サイズ目安: ~5KB
- * 更新: v1.0.1 — webp対応、obstacle/bombエフェクト方式変更
+ * v1.0.2 — BUG-1: wig_obstacleをMANIFEST追加, BUG-2: applyLogicalSize削除
  */
 "use strict";
 
@@ -45,26 +44,25 @@
 
     /* ========================================
      * 特殊アイテム定義
-     * obstacle: アフロの色調変化で表現
-     * bomb: ブロンドを光らせて表現
+     * DP-1結論: obstacle=専用画像あり、bomb=エフェクト生成
      * ======================================== */
     d.SPECIAL_TYPES = {
         obstacle: {
             id: 'obstacle',
-            baseImage: 'wig_afro',      /* 元画像キー */
+            baseImage: 'wig_afro',
             spawnRate: 0.10,
             minLevel: 2
         },
         bomb: {
             id: 'bomb',
-            baseImage: 'wig_blonde',    /* 元画像キー */
+            baseImage: 'wig_blonde',
             spawnRate: 0.08,
             minLevel: 3
         }
     };
 
     /* ========================================
-     * スコアリングテーブル（GDD v1.0 準拠）
+     * スコアリングテーブル
      * ======================================== */
     d.SCORE = {
         CATCH: 10,
@@ -82,7 +80,7 @@
     };
 
     /* ========================================
-     * コンボテーブル（D-6結論）
+     * コンボテーブル
      * ======================================== */
     d.COMBO_WINDOW = 300;
     d.COMBO_MULTIPLIER = [1, 1.5, 2, 3, 5];
@@ -93,7 +91,7 @@
     };
 
     /* ========================================
-     * 難易度テーブル（D-2結論: 経過時間ベース）
+     * 難易度テーブル
      * ======================================== */
     d.DIFFICULTY_TABLE = [
         { time:   0, fallSpeed: 2.0, spawnInterval: 72, wigTypeCount: 3, level: 1 },
@@ -112,8 +110,9 @@
     d.HAPPY_DURATION = 90;
 
     /* ========================================
-     * 画像マニフェスト（webp対応）
-     * obstacle/bomb は含めない（実行時にエフェクト生成）
+     * 画像マニフェスト
+     * BUG-1修正: wig_obstacleを追加（専用画像あり）
+     * bomb はエフェクト生成のためMANIFESTには含めない
      * ======================================== */
     d.IMAGE_MANIFEST = {
         /* プレイヤー */
@@ -127,6 +126,9 @@
         wig_bob:       'assets/img/wig_bob.webp',
         wig_afro:      'assets/img/wig_afro.webp',
 
+        /* 特殊: obstacle（専用画像あり） */
+        obstacle:      'assets/img/wig_obstacle.webp',
+
         /* カットイン（喜び） */
         happy_afro:    'assets/img/happy_afro.webp',
         happy_red:     'assets/img/happy_red.webp',
@@ -135,9 +137,6 @@
         happy_blonde:  'assets/img/happy_blonde.webp'
     };
 
-    /* ========================================
-     * Canvas論理サイズ適用
-     * ======================================== */
-    KS.CanvasManager.applyLogicalSize();
+    /* BUG-2修正: applyLogicalSize()をここから削除。boot()内で呼ぶ */
 
 })();

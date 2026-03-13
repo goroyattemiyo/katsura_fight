@@ -1,8 +1,7 @@
 /**
  * update.js — メインupdate関数
  * 読み込み順: 9番目
- * 責務: フレームごとのゲーム状態更新
- * サイズ目安: ~3KB
+ * v1.0.2 — BUG-5: 二重フィルタ削除（collision.check内に一本化）
  */
 "use strict";
 
@@ -12,16 +11,12 @@
         var st = KS.state;
         if (!st) return;
 
-        /* A-3対策: PLAYING以外では更新しない */
         if (st.current !== KS.GameStates.PLAYING) return;
 
         var d = KS.data;
         var p = st.player;
 
-        /* ========================================
-         * プレイヤー移動（D-4結論: lerp）
-         * E-2対策: documentリスナーでcanvas外でも追従
-         * ======================================== */
+        /* プレイヤー移動（lerp） */
         var targetX = KS.input.pointerX - p.w / 2;
         p.x += (targetX - p.x) * d.PLAYER_LERP_SPEED;
         p.x = Math.max(0, Math.min(d.CANVAS_W - p.w, p.x));
@@ -33,17 +28,13 @@
             p.facingRight = false;
         }
 
-        /* ========================================
-         * 喜び演出タイマー
-         * ======================================== */
+        /* 喜び演出タイマー */
         if (p.happyTimer > 0) {
             p.happyTimer--;
             if (p.happyTimer === 0) p.isHappy = false;
         }
 
-        /* ========================================
-         * カットインタイマー
-         * ======================================== */
+        /* カットインタイマー */
         if (st.cutIn.active) {
             st.cutIn.timer--;
             if (st.cutIn.timer <= 0) {
@@ -51,14 +42,10 @@
             }
         }
 
-        /* ========================================
-         * 経過プレイ時間（難易度に使用）
-         * ======================================== */
+        /* 経過プレイ時間 */
         st.elapsedPlayTime = KS.time.elapsed;
 
-        /* ========================================
-         * システム更新
-         * ======================================== */
+        /* システム更新 */
         KS.enemies.SpawnController.update();
         KS.systems.combo.update();
 
@@ -66,17 +53,20 @@
         for (var i = 0; i < st.fallingWigs.length; i++) {
             st.fallingWigs[i].update();
         }
-        /* 画面外の落下物を除去 */
-        st.fallingWigs = st.fallingWigs.filter(function(w) { return w.alive; });
 
-        /* 当たり判定 */
+        /*
+         * BUG-5修正: ここにあった fallingWigs.filter() を削除。
+         * 画面外の alive=false 設定は FallingWig.update() が行い、
+         * filter はcollision.check() 内で一括実行される。
+         */
+
+        /* 当たり判定（内部で alive=false のカツラも除去される） */
         KS.systems.collision.check();
 
         /* ゲームオーバー判定 */
         KS.systems.gameOverCheck();
     }
 
-    /* メインループに登録 */
     KS.updateFn = update;
 
 })();

@@ -16,6 +16,61 @@
 
 ## 2026-03-13 / Sprint 1-1: プロジェクト基盤構築
 
+---
+
+## 2026-03-13 / v1.0.2: バグ精査 + 障害物/ボム方針審議
+
+### 概要
+
+v1.0.1 の全ファイル精査により6件のバグを発見。障害物/ボムの画像方針について3つの対立点を議論し結論を出した。
+
+### Synapse Council 議論サマリー
+
+#### 召喚専門家
+
+| ID | 名前 | 召喚理由 |
+|---|---|---|
+| qa_reviewer | QA Reviewer | コード全行精査によるバグ発見 |
+| systems_architect | Systems Architect | 構造的問題と依存関係バグの分析 |
+| implementer | Implementer | 実装上の地雷と修正コスト見積もり |
+| uiux_designer | UI/UX Designer | 障害物/ボムの視覚的識別性評価 |
+
+#### バグ一覧（6件）
+
+| ID | 深刻度 | バグ | ファイル | 修正方針 |
+|---|---|---|---|---|
+| BUG-1 | 🟡中 | wig_obstacle.webpが無視されている | data.js, game.js | MANIFESTに追加、ハイブリッド方式 |
+| BUG-2 | 🔴高 | data.jsでCanvas未初期化のままapplyLogicalSize() | data.js, game.js | data.jsから削除、boot()内で呼ぶ |
+| BUG-3 | 🟡中 | _startGameがasyncだがawaitされない | ui_screens.js | AudioManager.initSync()に分離 |
+| BUG-4 | 🟡中 | エフェクト画像のImageが非同期デコード | game.js | Canvasオブジェクトをそのまま保持 |
+| BUG-5 | 🟢低 | 落下物フィルタの二重実行 | update.js | update.js側のフィルタを削除 |
+| BUG-6 | 🟢低 | ゲーム開始時にポインタ位置がリセットされない | ui_screens.js | startGame()内でpointerXをリセット |
+
+#### 対立点と結論（3件）
+
+| ID | 対立点 | 結論 | 根拠 |
+|---|---|---|---|
+| DP-1 | 障害物/ボム画像方針 | ハイブリッド（専用画像優先、なければエフェクト生成） | wig_obstacle.webp既存。bombはPhase2で専用画像化 |
+| DP-2 | エフェクト画像の保持形式 | Canvasオブジェクトのまま保持 | Imageへの変換は非同期リスク。Canvasは即時利用可能 |
+| DP-3 | AudioManager初期化方式 | 同期/非同期分離（initSync） | iOS Safariのジェスチャーコンテキスト問題回避 |
+
+#### 技術的負債（追加分）
+
+| 負債内容 | 理由 | 返済時期 | リスク |
+|---|---|---|---|
+| bomb専用画像が未作成 | Phase1ではエフェクト生成で代替 | Phase 2 | ブラウザ間で見た目微差 |
+
+### 変更ファイル
+
+| ファイル | 操作 | 概要 |
+|---|---|---|
+| game.js | 修正 | BUG-2: boot()内でapplyLogicalSize呼出。BUG-4: Canvas保持。AudioManager.initSync追加 |
+| data.js | 修正 | BUG-1: wig_obstacleをMANIFEST追加。BUG-2: applyLogicalSize()削除 |
+| ui_screens.js | 修正 | BUG-3: async廃止、initSync使用。BUG-6: pointerXリセット |
+| update.js | 修正 | BUG-5: 二重フィルタ削除 |
+| docs/DEVLOG.md | 追記 | 本議論ログ |
+
+
 ### 概要
 
 元データ（単一HTML）をクリーン再設計し、モジュラーアーキテクチャの骨格を構築した。

@@ -1,8 +1,7 @@
 /**
  * ui_screens.js — タイトル画面、ゲームオーバー画面、ローディング画面
  * 読み込み順: 8番目
- * 責務: 画面遷移ごとの描画とクリック処理
- * サイズ目安: ~6KB
+ * v1.0.2 — BUG-3: async廃止、initSync使用. BUG-6: pointerXリセット
  */
 "use strict";
 
@@ -27,7 +26,6 @@
             ctx.textAlign = 'center';
             ctx.fillText('Loading...', d.CANVAS_W / 2, d.CANVAS_H / 2 - 30);
 
-            /* プログレスバー */
             var barW = 200;
             var barH = 12;
             var barX = (d.CANVAS_W - barW) / 2;
@@ -51,11 +49,9 @@
             var d = KS.data;
             var fc = KS.time.frameCount;
 
-            /* 背景 */
             ctx.fillStyle = '#1a1a2e';
             ctx.fillRect(0, 0, d.CANVAS_W, d.CANVAS_H);
 
-            /* タイトル */
             ctx.save();
             var titleScale = 1 + Math.sin(fc * 0.03) * 0.03;
             ctx.translate(d.CANVAS_W / 2, d.CANVAS_H * 0.3);
@@ -69,13 +65,11 @@
             ctx.fillText('Wig Stack!', 0, 0);
             ctx.restore();
 
-            /* サブタイトル */
             ctx.font = '16px Arial';
             ctx.fillStyle = '#bdc3c7';
             ctx.textAlign = 'center';
             ctx.fillText('カツラ・スタック・パズル DX', d.CANVAS_W / 2, d.CANVAS_H * 0.3 + 40);
 
-            /* スタートボタン */
             var btnW = 220;
             var btnH = 55;
             var btnX = (d.CANVAS_W - btnW) / 2;
@@ -86,13 +80,11 @@
             ctx.translate(btnX + btnW / 2, btnY + btnH / 2);
             ctx.scale(pulse, pulse);
 
-            /* ボタン背景 */
             ctx.fillStyle = '#f1c40f';
             ctx.beginPath();
             KS.uiScreens._roundRect(ctx, -btnW / 2, -btnH / 2, btnW, btnH, 27);
             ctx.fill();
 
-            /* ボタンテキスト */
             ctx.font = 'bold 22px Arial';
             ctx.fillStyle = '#2c3e50';
             ctx.textAlign = 'center';
@@ -100,10 +92,8 @@
             ctx.fillText('TAP TO START', 0, 0);
             ctx.restore();
 
-            /* ボタンの当たり判定領域を保存（クリック判定用） */
             KS.uiScreens._titleBtnRect = { x: btnX, y: btnY, w: btnW, h: btnH };
 
-            /* ハイスコア */
             if (KS.state.highScore > 0) {
                 ctx.font = '16px Arial';
                 ctx.fillStyle = '#f39c12';
@@ -111,7 +101,6 @@
                 ctx.fillText('HIGH SCORE: ' + KS.state.highScore, d.CANVAS_W / 2, d.CANVAS_H * 0.72);
             }
 
-            /* 操作説明 */
             ctx.font = '13px Arial';
             ctx.fillStyle = '#7f8c8d';
             ctx.fillText('マウス or タッチで移動', d.CANVAS_W / 2, d.CANVAS_H * 0.85);
@@ -128,11 +117,9 @@
             var st = KS.state;
             var fc = KS.time.frameCount;
 
-            /* 半透明オーバーレイ */
             ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
             ctx.fillRect(0, 0, d.CANVAS_W, d.CANVAS_H);
 
-            /* タイトル */
             ctx.font = 'bold 36px Arial';
             ctx.fillStyle = '#e74c3c';
             ctx.strokeStyle = '#000000';
@@ -141,19 +128,16 @@
             ctx.strokeText('GAME OVER', d.CANVAS_W / 2, d.CANVAS_H * 0.3);
             ctx.fillText('GAME OVER', d.CANVAS_W / 2, d.CANVAS_H * 0.3);
 
-            /* スコア */
             ctx.font = 'bold 28px Arial';
             ctx.fillStyle = '#f1c40f';
             ctx.lineWidth = 3;
             ctx.strokeText('SCORE: ' + st.score, d.CANVAS_W / 2, d.CANVAS_H * 0.42);
             ctx.fillText('SCORE: ' + st.score, d.CANVAS_W / 2, d.CANVAS_H * 0.42);
 
-            /* ハイスコア */
             ctx.font = '18px Arial';
             ctx.fillStyle = '#f39c12';
             ctx.fillText('HIGH SCORE: ' + st.highScore, d.CANVAS_W / 2, d.CANVAS_H * 0.5);
 
-            /* リトライボタン */
             var btnW = 200;
             var btnH = 50;
             var btnX = (d.CANVAS_W - btnW) / 2;
@@ -202,15 +186,25 @@
             }
         },
 
-        _startGame: async function() {
-            /* D-1(audio)対策: ユーザージェスチャー内でaudio初期化 */
-            await KS.AudioManager.init();
+        /**
+         * BUG-3修正: async を廃止。initSync()で同期的にAudioContext生成。
+         * BUG-6修正: pointerX をプレイヤー初期位置にリセット。
+         * DP-3結論: iOS Safariのジェスチャーコンテキスト問題を回避。
+         */
+        _startGame: function() {
+            /* 同期的にAudioContext生成（ジェスチャーコンテキスト内） */
+            KS.AudioManager.initSync();
 
-            /* A-1, A-2対策: 全リセット */
+            /* ゲーム状態リセット */
             KS.state.startGame();
             KS.enemies.SpawnController.reset();
             KS.systems.combo.reset();
             KS.time.elapsed = 0;
+
+            /* BUG-6修正: ポインタ位置をプレイヤー初期位置にリセット */
+            var playerCenterX = KS.state.player.x + KS.state.player.w / 2;
+            KS.input.pointerX = playerCenterX;
+            KS.input.lastPointerX = playerCenterX;
         },
 
         /* ========================================
@@ -230,9 +224,7 @@
         }
     };
 
-    /* ========================================
-     * クリックイベント登録
-     * ======================================== */
+    /* クリックイベント登録 */
     document.addEventListener('pointerdown', function(e) {
         var logical = KS.CanvasManager.clientToLogical(e.clientX, e.clientY);
         KS.uiScreens.handleClick(logical.x, logical.y);
