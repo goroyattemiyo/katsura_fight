@@ -98,6 +98,10 @@ KS.GameState = class GameState {
             wigType: null
         };
         this.effects = [];
+        this.particles = [];
+        this.floatingTexts = [];
+        this.screenShake = { x: 0, y: 0, timer: 0, intensity: 0 };
+        this.bgWigs = [];
         this.spawnTimer = 0;
     }
 
@@ -116,12 +120,34 @@ KS.GameState = class GameState {
         this.cutIn.active = false;
         this.cutIn.timer = 0;
         this.effects = [];
+        this.particles = [];
+        this.floatingTexts = [];
+        this.screenShake = { x: 0, y: 0, timer: 0, intensity: 0 };
+        this.bgWigs = [];
     }
 
     triggerGameOver() {
         if (this.current !== KS.GameStates.PLAYING) return;
         this.current = KS.GameStates.GAMEOVER;
         KS.blessings.stopBGM();
+        /* カツラ吹き飛ばし */
+        var stack = this.player.stack;
+        for (var ei = 0; ei < stack.length; ei++) {
+            this.particles.push({
+                x: this.player.x + this.player.w / 2,
+                y: this.player.y - ei * 30,
+                vx: (Math.random() - 0.5) * 15,
+                vy: -(Math.random() * 10 + 5),
+                life: 90,
+                maxLife: 90,
+                size: 30,
+                type: 'wig',
+                imageKey: stack[ei].imageKey,
+                rotation: 0,
+                rotSpeed: (Math.random() - 0.5) * 0.3,
+                gravity: 0.3
+            });
+        }
         this.clearEffects();
         if (this.score > this.highScore) {
             this.highScore = this.score;

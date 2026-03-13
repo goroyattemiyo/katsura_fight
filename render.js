@@ -1,7 +1,5 @@
 /**
- * render.js — メイン描画関数
- * 読み込み順: 10番目（最後）
- * v1.0.5 — カツラフィッティング、背景改善、地面描画
+ * render.js v1.1.0 — 演出強化
  */
 "use strict";
 
@@ -33,25 +31,32 @@
     }
 
     function renderGame(ctx, st, d) {
-        /* 背景グラデーション */
+        ctx.save();
+        /* スクリーンシェイク適用 */
+        if (st.screenShake && st.screenShake.timer > 0) {
+            ctx.translate(st.screenShake.x, st.screenShake.y);
+        }
+
+        /* 背景 */
         var grad = ctx.createLinearGradient(0, 0, 0, d.CANVAS_H);
         grad.addColorStop(0, d.BG_GRAD_TOP);
         grad.addColorStop(1, d.BG_GRAD_BOTTOM);
         ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, d.CANVAS_W, d.CANVAS_H);
+        ctx.fillRect(-20, -20, d.CANVAS_W + 40, d.CANVAS_H + 40);
+
+        /* 背景ウィッグ */
+        renderBgWigs(ctx, st);
 
         /* 地面 */
         var groundY = d.CANVAS_H - d.GROUND_HEIGHT;
         ctx.fillStyle = d.GROUND_COLOR;
         ctx.fillRect(0, groundY, d.CANVAS_W, d.GROUND_HEIGHT);
-        /* 地面ライン */
         ctx.strokeStyle = d.GROUND_LINE_COLOR;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(0, groundY);
         ctx.lineTo(d.CANVAS_W, groundY);
         ctx.stroke();
-        /* 地面パターン（ドット） */
         ctx.fillStyle = d.GROUND_LINE_COLOR;
         for (var gx = 20; gx < d.CANVAS_W; gx += 40) {
             ctx.globalAlpha = 0.3;
@@ -59,7 +64,7 @@
             ctx.arc(gx, groundY + 30, 2, 0, Math.PI * 2);
             ctx.fill();
         }
-        ctx.globalAlpha = 1.0;
+        ctx.globalAlpha = 1;
 
         /* ゲームオーバーライン */
         ctx.save();
@@ -71,9 +76,8 @@
         ctx.lineTo(d.CANVAS_W, d.STACK_GAME_OVER_Y);
         ctx.stroke();
         ctx.setLineDash([]);
-        /* DANGER ラベル */
         ctx.fillStyle = 'rgba(255, 100, 100, 0.6)';
-        ctx.font = '10px Arial';
+        ctx.font = 'bold 10px Arial';
         ctx.textAlign = 'right';
         ctx.fillText('DANGER', d.CANVAS_W - 8, d.STACK_GAME_OVER_Y - 4);
         ctx.restore();
@@ -81,106 +85,153 @@
         renderPlayer(ctx, st, d);
         renderStack(ctx, st, d);
         renderFallingWigs(ctx, st, d);
+        renderParticles(ctx, st);
+        renderFloatingTexts(ctx, st);
         KS.ui.drawCutIn(ctx);
         KS.ui.drawHUD(ctx);
+
+        ctx.restore(); /* シェイク解除 */
+    }
+
+    function renderBgWigs(ctx, st) {
+        if (!st.bgWigs) return;
+        for (var i = 0; i < st.bgWigs.length; i++) {
+            var bw = st.bgWigs[i];
+            var img = KS.assets.images[bw.imageKey];
+            if (!img) continue;
+            ctx.save();
+            ctx.globalAlpha = bw.alpha;
+            ctx.translate(bw.x, bw.y);
+            ctx.rotate(bw.rotation);
+            ctx.drawImage(img, -bw.size / 2, -bw.size / 2, bw.size, bw.size * 0.55);
+            ctx.restore();
+        }
     }
 
     function renderPlayer(ctx, st, d) {
         var p = st.player;
         var imgKey = p.isHappy ? 'playerHappy' : 'player';
         var img = KS.assets.images[imgKey];
-
         ctx.save();
         ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
         if (p.facingRight) ctx.scale(-1, 1);
         if (p.isHappy) ctx.translate(0, Math.sin(KS.time.frameCount * 0.15) * 3);
-
         if (img) {
             ctx.drawImage(img, -p.w / 2, -p.h / 2, p.w, p.h);
         } else {
             ctx.fillStyle = '#3498db';
             ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '10px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('PLAYER', 0, 5);
         }
         ctx.restore();
     }
 
     function renderStack(ctx, st, d) {
         var p = st.player;
-        var stack = p.stack;
-
-        for (var i = 0; i < stack.length; i++) {
-            var item = stack[i];
-            /* カツラをプレイヤー頭頂中央に配置 */
+        for (var i = 0; i < p.stack.length; i++) {
             var drawX = p.x + (p.w - d.WIG_STACK_W) / 2;
             var headTopY = p.y + d.PLAYER_HEAD_TOP_OFFSET;
             var drawY = headTopY - (i + 1) * d.STACK_OFFSET;
-
-            renderStackWigItem(ctx, item.imageKey, drawX, drawY);
+            /* 微妙な揺れ（上に行くほど揺れる） */
+            var wobble = Math.sin(KS.time.frameCount * 0.05 + i * 0.8) * (i * 0.5);
+            renderStackWig(ctx, p.stack[i].imageKey, drawX + wobble, drawY);
         }
     }
 
     function renderFallingWigs(ctx, st, d) {
         for (var i = 0; i < st.fallingWigs.length; i++) {
             var w = st.fallingWigs[i];
-            renderFallingWigItem(ctx, w.imageKey, w.x, w.y, w.rotation);
+            ctx.save();
+            ctx.translate(w.x + d.WIG_W / 2, w.y + d.WIG_H / 2);
+            if (w.rotation) ctx.rotate(w.rotation);
+            var img = KS.assets.images[w.imageKey];
+            if (img) {
+                ctx.drawImage(img, -d.WIG_W / 2, -d.WIG_H / 2, d.WIG_W, d.WIG_H);
+            } else {
+                ctx.fillStyle = w.isBomb ? '#f1c40f' : (w.isObstacle ? '#2c3e50' : '#9b59b6');
+                ctx.fillRect(-d.WIG_W / 2, -d.WIG_H / 2, d.WIG_W, d.WIG_H);
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(w.isBomb ? 'BOMB' : (w.isObstacle ? 'BLOCK' : w.imageKey), 0, 0);
+            }
+            ctx.restore();
         }
     }
 
-    /* 落下中のカツラ描画（WIG_W x WIG_H） */
-    function renderFallingWigItem(ctx, imageKey, x, y, rot) {
+    function renderStackWig(ctx, imageKey, x, y) {
         var d = KS.data;
-        ctx.save();
-        ctx.translate(x + d.WIG_W / 2, y + d.WIG_H / 2);
-        if (rot) ctx.rotate(rot);
-
         var img = KS.assets.images[imageKey];
         if (img) {
-            ctx.drawImage(img, -d.WIG_W / 2, -d.WIG_H / 2, d.WIG_W, d.WIG_H);
+            ctx.drawImage(img, x, y, d.WIG_STACK_W, d.WIG_STACK_H);
         } else {
-            var isBomb = (imageKey === 'bomb');
-            var isObstacle = (imageKey === 'obstacle');
-            ctx.fillStyle = isBomb ? '#f1c40f' : (isObstacle ? '#2c3e50' : '#9b59b6');
-            ctx.fillRect(-d.WIG_W / 2, -d.WIG_H / 2, d.WIG_W, d.WIG_H);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '10px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            var label = isBomb ? 'BOMB' : (isObstacle ? 'BLOCK' : (imageKey || '?').toUpperCase());
-            ctx.fillText(label, 0, 0);
+            ctx.fillStyle = '#9b59b6';
+            ctx.fillRect(x, y, d.WIG_STACK_W, d.WIG_STACK_H);
         }
-        ctx.restore();
     }
 
-    /* スタック上のカツラ描画（WIG_STACK_W x WIG_STACK_H） */
-    function renderStackWigItem(ctx, imageKey, x, y) {
-        var d = KS.data;
-        ctx.save();
-        ctx.translate(x + d.WIG_STACK_W / 2, y + d.WIG_STACK_H / 2);
+    function renderParticles(ctx, st) {
+        var pts = st.particles;
+        for (var i = 0; i < pts.length; i++) {
+            var p = pts[i];
+            var alpha = p.life / p.maxLife;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rotation || 0);
 
-        var img = KS.assets.images[imageKey];
-        if (img) {
-            ctx.drawImage(img, -d.WIG_STACK_W / 2, -d.WIG_STACK_H / 2, d.WIG_STACK_W, d.WIG_STACK_H);
-        } else {
-            var isBomb = (imageKey === 'bomb');
-            var isObstacle = (imageKey === 'obstacle');
-            ctx.fillStyle = isBomb ? '#f1c40f' : (isObstacle ? '#2c3e50' : '#9b59b6');
-            ctx.fillRect(-d.WIG_STACK_W / 2, -d.WIG_STACK_H / 2, d.WIG_STACK_W, d.WIG_STACK_H);
-            ctx.fillStyle = '#ffffff';
-            ctx.font = '9px Arial';
+            if (p.type === 'star') {
+                drawStar(ctx, 0, 0, p.size / 2, p.color);
+            } else if (p.type === 'wig' && p.imageKey) {
+                var img = KS.assets.images[p.imageKey];
+                if (img) {
+                    ctx.drawImage(img, -p.size / 2, -p.size * 0.275, p.size, p.size * 0.55);
+                }
+            } else {
+                ctx.fillStyle = p.color || '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+    }
+
+    function drawStar(ctx, x, y, r, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        for (var i = 0; i < 5; i++) {
+            var angle = (i * 4 * Math.PI / 5) - Math.PI / 2;
+            if (i === 0) ctx.moveTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r);
+            else ctx.lineTo(x + Math.cos(angle) * r, y + Math.sin(angle) * r);
+        }
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function renderFloatingTexts(ctx, st) {
+        var fts = st.floatingTexts;
+        for (var i = 0; i < fts.length; i++) {
+            var ft = fts[i];
+            var alpha = ft.life / ft.maxLife;
+            var scale = 1 + (1 - alpha) * 0.3;
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(ft.x, ft.y);
+            ctx.scale(scale, scale);
+            ctx.font = 'bold ' + ft.fontSize + 'px Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(imageKey || '?', 0, 0);
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.strokeText(ft.text, 0, 0);
+            ctx.fillStyle = ft.color;
+            ctx.fillText(ft.text, 0, 0);
+            ctx.restore();
         }
-        ctx.restore();
     }
 
     KS.renderFn = render;
-
-    /* ブートシーケンス起動 */
     KS.boot();
 
 })();

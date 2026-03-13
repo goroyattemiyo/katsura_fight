@@ -1,34 +1,27 @@
 /**
- * data.js — ゲーム定数、バランステーブル、アセットマニフェスト
- * 読み込み順: 2番目（game.js の後）
- * v1.0.6 — スポーンバイアス率追加、STACK_OFFSET調整
+ * data.js v1.1.0 — ジョーク演出強化
  */
 "use strict";
 
 (function() {
     var d = KS.data;
 
-    /* Canvas */
     d.CANVAS_W = 450;
     d.CANVAS_H = 800;
 
-    /* プレイヤー */
     d.PLAYER_W = 90;
     d.PLAYER_H = 90;
     d.PLAYER_GROUND_OFFSET = 110;
     d.PLAYER_LERP_SPEED = 0.4;
     d.PLAYER_HEAD_TOP_OFFSET = 8;
 
-    /* カツラ（落下時） */
     d.WIG_W = 80;
     d.WIG_H = 44;
-    /* カツラ（スタック時） */
     d.WIG_STACK_W = 70;
     d.WIG_STACK_H = 38;
     d.STACK_OFFSET = 30;
     d.STACK_GAME_OVER_Y = 50;
 
-    /* カツラタイプ */
     d.WIG_TYPES = [
         { id: 'regent',  name: 'リーゼント', minLevel: 1 },
         { id: 'blonde',  name: 'ブロンド',   minLevel: 1 },
@@ -37,40 +30,30 @@
         { id: 'afro',    name: 'アフロ',     minLevel: 5 }
     ];
 
-    /* 特殊アイテム */
     d.SPECIAL_TYPES = {
         obstacle: { id: 'obstacle', baseImage: 'wig_afro', spawnRate: 0.10, minLevel: 2 },
         bomb:     { id: 'bomb',     baseImage: 'wig_blonde', spawnRate: 0.08, minLevel: 3 }
     };
 
-    /* スポーンバイアス率: 直前キャッチ種と同じものが出る確率 */
     d.SPAWN_BIAS_RATE = 0.40;
 
-    /* スコアリング */
     d.SCORE = {
-        CATCH: 10,
-        MATCH_3: 300,
-        MATCH_4: 500,
-        MATCH_5_PLUS: 800,
+        CATCH: 10, MATCH_3: 300, MATCH_4: 500, MATCH_5_PLUS: 800,
         BOMB_CLEAR_PER_OBSTACLE: 50
     };
-
-    d.getMatchScore = function(matchCount) {
-        if (matchCount >= 5) return d.SCORE.MATCH_5_PLUS;
-        if (matchCount === 4) return d.SCORE.MATCH_4;
-        if (matchCount === 3) return d.SCORE.MATCH_3;
+    d.getMatchScore = function(mc) {
+        if (mc >= 5) return d.SCORE.MATCH_5_PLUS;
+        if (mc === 4) return d.SCORE.MATCH_4;
+        if (mc === 3) return d.SCORE.MATCH_3;
         return 0;
     };
 
-    /* コンボ */
     d.COMBO_WINDOW = 300;
     d.COMBO_MULTIPLIER = [1, 1.5, 2, 3, 5];
-    d.getComboMultiplier = function(comboCount) {
-        var idx = Math.min(comboCount, d.COMBO_MULTIPLIER.length - 1);
-        return d.COMBO_MULTIPLIER[idx];
+    d.getComboMultiplier = function(cc) {
+        return d.COMBO_MULTIPLIER[Math.min(cc, d.COMBO_MULTIPLIER.length - 1)];
     };
 
-    /* 難易度テーブル */
     d.DIFFICULTY_TABLE = [
         { time:   0, fallSpeed: 2.0, spawnInterval: 72, wigTypeCount: 3, level: 1 },
         { time:  30, fallSpeed: 2.5, spawnInterval: 65, wigTypeCount: 3, level: 2 },
@@ -81,8 +64,7 @@
         { time: 240, fallSpeed: 6.0, spawnInterval: 30, wigTypeCount: 5, level: 7 }
     ];
 
-    /* 演出 */
-    d.CUTIN_DURATION = 50;
+    d.CUTIN_DURATION = 60;
     d.HAPPY_DURATION = 90;
 
     /* 背景 */
@@ -92,7 +74,17 @@
     d.GROUND_COLOR = '#2d1b4e';
     d.GROUND_LINE_COLOR = '#8b5cf6';
 
-    /* 画像マニフェスト */
+    /* 演出定数 */
+    d.SCREEN_SHAKE_CATCH = 3;
+    d.SCREEN_SHAKE_MATCH = 8;
+    d.SCREEN_SHAKE_OBSTACLE = 12;
+    d.SCREEN_SHAKE_DURATION = 15;
+    d.PARTICLE_COUNT_CATCH = 5;
+    d.PARTICLE_COUNT_MATCH = 25;
+    d.PARTICLE_COUNT_BOMB = 15;
+    d.FLOATING_TEXT_DURATION = 60;
+    d.BG_WIG_COUNT = 8;
+
     d.IMAGE_MANIFEST = {
         player:        'assets/img/player.webp',
         playerHappy:   'assets/img/player_happy.webp',
@@ -107,5 +99,4 @@
         happy_bob:     'assets/img/happy_bob.webp',
         happy_blonde:  'assets/img/happy_blonde.webp'
     };
-
 })();

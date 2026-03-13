@@ -202,6 +202,8 @@
             KS.time.elapsed = 0;
             /* BGM開始 */
             KS.blessings.startBGM();
+            /* 背景ウィッグ初期化 */
+            if (KS.systems.fx) KS.systems.fx.initBgWigs();
 
             /* BUG-6修正: ポインタ位置をプレイヤー初期位置にリセット */
             var playerCenterX = KS.state.player.x + KS.state.player.w / 2;
