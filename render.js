@@ -1,7 +1,7 @@
 /**
  * render.js — メイン描画関数
  * 読み込み順: 10番目（最後）
- * 更新: v1.0.1 — imageKey対応、エフェクト画像利用
+ * v1.0.5 — カツラフィッティング、背景改善、地面描画
  */
 "use strict";
 
@@ -19,15 +19,12 @@
             case KS.GameStates.LOADING:
                 KS.uiScreens.drawLoading(ctx);
                 break;
-
             case KS.GameStates.TITLE:
                 KS.uiScreens.drawTitle(ctx);
                 break;
-
             case KS.GameStates.PLAYING:
                 renderGame(ctx, st, d);
                 break;
-
             case KS.GameStates.GAMEOVER:
                 renderGame(ctx, st, d);
                 KS.uiScreens.drawGameOver(ctx);
@@ -36,22 +33,49 @@
     }
 
     function renderGame(ctx, st, d) {
+        /* 背景グラデーション */
         var grad = ctx.createLinearGradient(0, 0, 0, d.CANVAS_H);
-        grad.addColorStop(0, '#dfe6e9');
-        grad.addColorStop(1, '#b2bec3');
+        grad.addColorStop(0, d.BG_GRAD_TOP);
+        grad.addColorStop(1, d.BG_GRAD_BOTTOM);
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, d.CANVAS_W, d.CANVAS_H);
 
+        /* 地面 */
+        var groundY = d.CANVAS_H - d.GROUND_HEIGHT;
+        ctx.fillStyle = d.GROUND_COLOR;
+        ctx.fillRect(0, groundY, d.CANVAS_W, d.GROUND_HEIGHT);
+        /* 地面ライン */
+        ctx.strokeStyle = d.GROUND_LINE_COLOR;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, groundY);
+        ctx.lineTo(d.CANVAS_W, groundY);
+        ctx.stroke();
+        /* 地面パターン（ドット） */
+        ctx.fillStyle = d.GROUND_LINE_COLOR;
+        for (var gx = 20; gx < d.CANVAS_W; gx += 40) {
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(gx, groundY + 30, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1.0;
+
         /* ゲームオーバーライン */
         ctx.save();
-        ctx.strokeStyle = 'rgba(231, 76, 60, 0.3)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([8, 8]);
+        ctx.strokeStyle = 'rgba(255, 100, 100, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 6]);
         ctx.beginPath();
         ctx.moveTo(0, d.STACK_GAME_OVER_Y);
         ctx.lineTo(d.CANVAS_W, d.STACK_GAME_OVER_Y);
         ctx.stroke();
         ctx.setLineDash([]);
+        /* DANGER ラベル */
+        ctx.fillStyle = 'rgba(255, 100, 100, 0.6)';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText('DANGER', d.CANVAS_W - 8, d.STACK_GAME_OVER_Y - 4);
         ctx.restore();
 
         renderPlayer(ctx, st, d);
@@ -69,7 +93,7 @@
         ctx.save();
         ctx.translate(p.x + p.w / 2, p.y + p.h / 2);
         if (p.facingRight) ctx.scale(-1, 1);
-        if (p.isHappy) ctx.translate(0, Math.sin(KS.time.frameCount * 0.15) * 5);
+        if (p.isHappy) ctx.translate(0, Math.sin(KS.time.frameCount * 0.15) * 3);
 
         if (img) {
             ctx.drawImage(img, -p.w / 2, -p.h / 2, p.w, p.h);
@@ -90,20 +114,24 @@
 
         for (var i = 0; i < stack.length; i++) {
             var item = stack[i];
-            var drawX = p.x + (p.w - d.WIG_W) / 2;
-            var drawY = p.y - (i + 1) * d.STACK_OFFSET + 15;
-            renderWigItem(ctx, item.imageKey, drawX, drawY, 0);
+            /* カツラをプレイヤー頭頂中央に配置 */
+            var drawX = p.x + (p.w - d.WIG_STACK_W) / 2;
+            var headTopY = p.y + d.PLAYER_HEAD_TOP_OFFSET;
+            var drawY = headTopY - (i + 1) * d.STACK_OFFSET;
+
+            renderStackWigItem(ctx, item.imageKey, drawX, drawY);
         }
     }
 
     function renderFallingWigs(ctx, st, d) {
         for (var i = 0; i < st.fallingWigs.length; i++) {
             var w = st.fallingWigs[i];
-            renderWigItem(ctx, w.imageKey, w.x, w.y, w.rotation);
+            renderFallingWigItem(ctx, w.imageKey, w.x, w.y, w.rotation);
         }
     }
 
-    function renderWigItem(ctx, imageKey, x, y, rot) {
+    /* 落下中のカツラ描画（WIG_W x WIG_H） */
+    function renderFallingWigItem(ctx, imageKey, x, y, rot) {
         var d = KS.data;
         ctx.save();
         ctx.translate(x + d.WIG_W / 2, y + d.WIG_H / 2);
@@ -113,18 +141,10 @@
         if (img) {
             ctx.drawImage(img, -d.WIG_W / 2, -d.WIG_H / 2, d.WIG_W, d.WIG_H);
         } else {
-            /* プレースホルダー */
             var isBomb = (imageKey === 'bomb');
             var isObstacle = (imageKey === 'obstacle');
-            if (isBomb) {
-                ctx.fillStyle = '#f1c40f';
-            } else if (isObstacle) {
-                ctx.fillStyle = '#2c3e50';
-            } else {
-                ctx.fillStyle = '#9b59b6';
-            }
+            ctx.fillStyle = isBomb ? '#f1c40f' : (isObstacle ? '#2c3e50' : '#9b59b6');
             ctx.fillRect(-d.WIG_W / 2, -d.WIG_H / 2, d.WIG_W, d.WIG_H);
-
             ctx.fillStyle = '#ffffff';
             ctx.font = '10px Arial';
             ctx.textAlign = 'center';
@@ -132,7 +152,29 @@
             var label = isBomb ? 'BOMB' : (isObstacle ? 'BLOCK' : (imageKey || '?').toUpperCase());
             ctx.fillText(label, 0, 0);
         }
+        ctx.restore();
+    }
 
+    /* スタック上のカツラ描画（WIG_STACK_W x WIG_STACK_H） */
+    function renderStackWigItem(ctx, imageKey, x, y) {
+        var d = KS.data;
+        ctx.save();
+        ctx.translate(x + d.WIG_STACK_W / 2, y + d.WIG_STACK_H / 2);
+
+        var img = KS.assets.images[imageKey];
+        if (img) {
+            ctx.drawImage(img, -d.WIG_STACK_W / 2, -d.WIG_STACK_H / 2, d.WIG_STACK_W, d.WIG_STACK_H);
+        } else {
+            var isBomb = (imageKey === 'bomb');
+            var isObstacle = (imageKey === 'obstacle');
+            ctx.fillStyle = isBomb ? '#f1c40f' : (isObstacle ? '#2c3e50' : '#9b59b6');
+            ctx.fillRect(-d.WIG_STACK_W / 2, -d.WIG_STACK_H / 2, d.WIG_STACK_W, d.WIG_STACK_H);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '9px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(imageKey || '?', 0, 0);
+        }
         ctx.restore();
     }
 

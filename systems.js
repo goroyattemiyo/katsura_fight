@@ -1,29 +1,38 @@
 /**
- * systems.js — 当たり判定、コンボ、難易度制御、スコアリング
+ * systems.js — コアゲームメカニクス
  * 読み込み順: 5番目
- * 更新: v1.0.1 — imageKey対応
+ * v1.0.5 — collision hitbox を新サイズ定数に合わせて修正
  */
 "use strict";
 
 (function() {
+
+    var WIG_W, WIG_H, STACK_OFFSET;
+
+    function ensureConstants() {
+        WIG_W = KS.data.WIG_W;
+        WIG_H = KS.data.WIG_H;
+        STACK_OFFSET = KS.data.STACK_OFFSET;
+    }
 
     /* ========================================
      * 難易度制御
      * ======================================== */
     KS.systems.difficulty = {
         getCurrent: function() {
+            ensureConstants();
+            var st = KS.state;
             var table = KS.data.DIFFICULTY_TABLE;
-            var elapsedSec = KS.time.elapsed / 1000;
+            var elapsed = st.elapsedPlayTime / 1000;
             var current = table[0];
-
-            for (var i = table.length - 1; i >= 0; i--) {
-                if (elapsedSec >= table[i].time) {
+            for (var i = 1; i < table.length; i++) {
+                if (elapsed >= table[i].time) {
                     current = table[i];
+                } else {
                     break;
                 }
             }
-
-            KS.state.difficultyLevel = current.level;
+            st.difficultyLevel = current.level;
             return current;
         }
     };
@@ -34,10 +43,9 @@
     KS.systems.combo = {
         update: function() {
             var st = KS.state;
-            if (st.current !== KS.GameStates.PLAYING) return;
             if (st.comboTimer > 0) {
                 st.comboTimer--;
-                if (st.comboTimer === 0) {
+                if (st.comboTimer <= 0) {
                     st.comboCount = 0;
                 }
             }
@@ -45,154 +53,140 @@
 
         onMatch: function(matchCount) {
             var st = KS.state;
-            if (st.comboTimer > 0) {
-                st.comboCount++;
-            } else {
-                st.comboCount = 0;
-            }
+            st.comboCount++;
             st.comboTimer = KS.data.COMBO_WINDOW;
-
             var baseScore = KS.data.getMatchScore(matchCount);
-            var mult = KS.data.getComboMultiplier(st.comboCount);
-            return Math.floor(baseScore * mult);
+            var multiplier = KS.data.getComboMultiplier(st.comboCount);
+            var totalScore = Math.floor(baseScore * multiplier);
+            st.score += totalScore;
+            return totalScore;
         },
 
         reset: function() {
-            if (!KS.state) return;
             KS.state.comboCount = 0;
             KS.state.comboTimer = 0;
         }
     };
 
     /* ========================================
-     * マッチ判定 — 最上部連続一致（可変長）
+     * マッチ検出
      * ======================================== */
     KS.systems.match = {
         check: function() {
-            var stack = KS.state.player.stack;
-            if (stack.length < 3) return 0;
+            var st = KS.state;
+            var stack = st.player.stack;
+            if (stack.length < 3) return;
 
-            var top = stack[stack.length - 1];
-            if (top.isObstacle) return 0;
+            var topType = stack[stack.length - 1].type;
+            if (topType === 'obstacle') return;
 
-            var topType = top.type;
-            var count = 0;
-
-            for (var i = stack.length - 1; i >= 0; i--) {
+            var matchCount = 1;
+            for (var i = stack.length - 2; i >= 0; i--) {
                 if (stack[i].type === topType && !stack[i].isObstacle) {
-                    count++;
+                    matchCount++;
                 } else {
                     break;
                 }
             }
 
-            if (count >= 3) {
-                var matchedType = topType;
-                stack.splice(stack.length - count, count);
+            if (matchCount >= 3) {
+                stack.splice(stack.length - matchCount, matchCount);
+                var scored = KS.systems.combo.onMatch(matchCount);
 
-                var points = KS.systems.combo.onMatch(count);
-                KS.state.score += points;
+                st.player.isHappy = true;
+                st.player.happyTimer = KS.data.HAPPY_DURATION;
 
-                KS.state.player.isHappy = true;
-                KS.state.player.happyTimer = KS.data.HAPPY_DURATION;
+                st.cutIn.active = true;
+                st.cutIn.timer = KS.data.CUTIN_DURATION;
+                st.cutIn.wigType = topType;
 
-                KS.state.cutIn.active = true;
-                KS.state.cutIn.timer = KS.data.CUTIN_DURATION;
-                KS.state.cutIn.wigType = matchedType;
-
-                KS.AudioManager.playSfx(1200, 'triangle', 0.5);
-
-                return count;
+                KS.AudioManager.playSfx(880, 'sine', 0.3);
             }
-
-            return 0;
         }
     };
 
     /* ========================================
-     * 当たり判定
+     * 衝突判定
+     * v1.0.5: ヒットボックスを新サイズ定数に合わせて調整
      * ======================================== */
     KS.systems.collision = {
         check: function() {
+            ensureConstants();
             var st = KS.state;
             var p = st.player;
             var d = KS.data;
 
-            var stackTopY = p.y - (p.stack.length * d.STACK_OFFSET);
+            /* プレイヤーのキャッチ領域: 頭頂付近 */
+            var stackTopY;
+            if (p.stack.length === 0) {
+                stackTopY = p.y + d.PLAYER_HEAD_TOP_OFFSET;
+            } else {
+                stackTopY = p.y + d.PLAYER_HEAD_TOP_OFFSET - p.stack.length * STACK_OFFSET;
+            }
 
-            var hitTop = stackTopY - d.WIG_H * 0.5;
-            var hitBottom = stackTopY + d.WIG_H * 0.5;
-            var hitLeft = p.x + (p.w - d.WIG_W) / 2;
-            var hitRight = hitLeft + d.WIG_W;
+            var catchLeft = p.x;
+            var catchRight = p.x + p.w;
+            var catchTop = stackTopY - WIG_H;
+            var catchBottom = stackTopY + WIG_H;
 
             for (var i = st.fallingWigs.length - 1; i >= 0; i--) {
                 var w = st.fallingWigs[i];
                 if (!w.alive) continue;
 
-                var wCenterY = w.y + d.WIG_H / 2;
-                var wLeft = w.x;
-                var wRight = w.x + d.WIG_W;
+                var wigCX = w.x + WIG_W / 2;
+                var wigCY = w.y + WIG_H / 2;
 
-                if (wCenterY >= hitTop && wCenterY <= hitBottom + d.WIG_H &&
-                    wRight > hitLeft && wLeft < hitRight) {
+                if (wigCX > catchLeft && wigCX < catchRight &&
+                    wigCY > catchTop && wigCY < catchBottom) {
 
                     w.alive = false;
+                    st.fallingWigs.splice(i, 1);
 
                     if (w.isBomb) {
-                        KS.systems.collision._handleBomb();
+                        KS.systems.collision._handleBomb(st);
                     } else if (w.isObstacle) {
-                        KS.systems.collision._handleObstacle(w);
+                        KS.systems.collision._handleObstacle(st, w);
                     } else {
-                        KS.systems.collision._handleNormal(w);
+                        KS.systems.collision._handleNormal(st, w);
                     }
                 }
             }
-
-            st.fallingWigs = st.fallingWigs.filter(function(w) { return w.alive; });
         },
 
-        _handleNormal: function(w) {
-            var st = KS.state;
+        _handleNormal: function(st, w) {
             st.player.stack.push({
                 type: w.type,
                 imageKey: w.imageKey,
                 isObstacle: false
             });
             st.score += KS.data.SCORE.CATCH;
-            KS.AudioManager.playSfx(440, 'sine', 0.1);
+            KS.AudioManager.playSfx(440, 'sine', 0.08);
             KS.systems.match.check();
         },
 
-        _handleObstacle: function(w) {
-            var st = KS.state;
+        _handleObstacle: function(st, w) {
             st.player.stack.push({
                 type: 'obstacle',
-                imageKey: 'obstacle',
+                imageKey: w.imageKey,
                 isObstacle: true
             });
-            KS.AudioManager.playSfx(80, 'sawtooth', 0.4);
+            KS.AudioManager.playSfx(200, 'sawtooth', 0.15);
         },
 
-        _handleBomb: function() {
-            var st = KS.state;
-            var removedCount = 0;
-
-            st.player.stack = st.player.stack.filter(function(item) {
-                if (item.isObstacle) {
-                    removedCount++;
-                    return false;
+        _handleBomb: function(st) {
+            var removed = 0;
+            for (var i = st.player.stack.length - 1; i >= 0; i--) {
+                if (st.player.stack[i].isObstacle) {
+                    st.player.stack.splice(i, 1);
+                    removed++;
                 }
-                return true;
-            });
-
-            st.score += removedCount * KS.data.SCORE.BOMB_CLEAR_PER_OBSTACLE;
-
-            if (removedCount > 0) {
+            }
+            if (removed > 0) {
+                st.score += removed * KS.data.SCORE.BOMB_CLEAR_PER_OBSTACLE;
                 st.player.isHappy = true;
                 st.player.happyTimer = KS.data.HAPPY_DURATION;
             }
-
-            KS.AudioManager.playSfx(880, 'square', 0.3);
+            KS.AudioManager.playSfx(660, 'square', 0.2);
         }
     };
 
@@ -200,11 +194,15 @@
      * ゲームオーバー判定
      * ======================================== */
     KS.systems.gameOverCheck = function() {
+        ensureConstants();
         var st = KS.state;
         var p = st.player;
-        var stackTopY = p.y - (p.stack.length * KS.data.STACK_OFFSET);
+        var d = KS.data;
 
-        if (stackTopY <= KS.data.STACK_GAME_OVER_Y) {
+        if (p.stack.length === 0) return;
+
+        var topY = p.y + d.PLAYER_HEAD_TOP_OFFSET - p.stack.length * STACK_OFFSET;
+        if (topY <= d.STACK_GAME_OVER_Y) {
             st.triggerGameOver();
         }
     };

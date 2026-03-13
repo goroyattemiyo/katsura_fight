@@ -2,7 +2,7 @@
  * data.js — ゲーム定数、バランステーブル、アセットマニフェスト
  * 読み込み順: 2番目（game.js の後）
  * 責務: 調整可能な全数値の一元管理
- * v1.0.3 — obstacle画像をMANIFESTから削除（エフェクト生成に統一）
+ * v1.0.5 — カツラサイズ・位置フィッティング、背景改善
  */
 "use strict";
 
@@ -18,18 +18,25 @@
     /* ========================================
      * プレイヤー定数
      * ======================================== */
-    d.PLAYER_W = 75;
-    d.PLAYER_H = 75;
-    d.PLAYER_GROUND_OFFSET = 100;
+    d.PLAYER_W = 90;
+    d.PLAYER_H = 90;
+    d.PLAYER_GROUND_OFFSET = 110;
     d.PLAYER_LERP_SPEED = 0.4;
+    /* 頭頂オフセット: プレイヤー画像上端から頭頂までのピクセル数 */
+    d.PLAYER_HEAD_TOP_OFFSET = 8;
 
     /* ========================================
      * カツラ定数
+     * 実画像比率 677:369 = 1.834:1
+     * 落下時: やや大きめで視認性確保
+     * スタック時: プレイヤー頭にフィットするサイズ
      * ======================================== */
-    d.WIG_W = 90;
-    d.WIG_H = 60;
-    d.STACK_OFFSET = 28;
-    d.STACK_GAME_OVER_Y = 30;
+    d.WIG_W = 80;
+    d.WIG_H = 44;
+    d.WIG_STACK_W = 70;
+    d.WIG_STACK_H = 38;
+    d.STACK_OFFSET = 22;
+    d.STACK_GAME_OVER_Y = 50;
 
     /* ========================================
      * カツラタイプ定義
@@ -44,8 +51,7 @@
 
     /* ========================================
      * 特殊アイテム定義
-     * DP-1結論更新: obstacle/bomb ともにエフェクト生成に統一
-     * （wig_obstacle.webp は v1.0.3 で削除済み）
+     * DP-1結論: obstacle/bomb ともにエフェクト生成に統一
      * ======================================== */
     d.SPECIAL_TYPES = {
         obstacle: {
@@ -111,23 +117,25 @@
     d.HAPPY_DURATION = 90;
 
     /* ========================================
+     * 背景定数
+     * ======================================== */
+    d.BG_GRAD_TOP = '#667eea';
+    d.BG_GRAD_BOTTOM = '#764ba2';
+    d.GROUND_HEIGHT = 60;
+    d.GROUND_COLOR = '#2d1b4e';
+    d.GROUND_LINE_COLOR = '#8b5cf6';
+
+    /* ========================================
      * 画像マニフェスト
-     * v1.0.3: obstacle を削除（エフェクト生成に統一）
-     * bomb は引き続きエフェクト生成のためMANIFESTには含めない
      * ======================================== */
     d.IMAGE_MANIFEST = {
-        /* プレイヤー */
         player:        'assets/img/player.webp',
         playerHappy:   'assets/img/player_happy.webp',
-
-        /* カツラ */
         wig_regent:    'assets/img/wig_regent.webp',
         wig_blonde:    'assets/img/wig_blonde.webp',
         wig_red:       'assets/img/wig_red.webp',
         wig_bob:       'assets/img/wig_bob.webp',
         wig_afro:      'assets/img/wig_afro.webp',
-
-        /* カットイン（喜び） */
         happy_afro:    'assets/img/happy_afro.webp',
         happy_red:     'assets/img/happy_red.webp',
         happy_regent:  'assets/img/happy_regent.webp',
