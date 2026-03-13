@@ -151,8 +151,12 @@ KS.AudioManager = {
             if (!AC) return;
             if (!KS.audio.ctx) KS.audio.ctx = new AC();
             if (KS.audio.ctx.state === 'suspended') {
-                KS.audio.ctx.resume().then(function() { KS.audio.initialized = true; });
-            } else { KS.audio.initialized = true; }
+                KS.audio.ctx.resume();
+            }
+            /* モバイル対応: ジェスチャーコンテキスト内で呼ばれるため
+               resume()発行直後に楽観的にtrue設定。
+               ブラウザはジェスチャー内のresumeを即座に許可する。 */
+            KS.audio.initialized = true;
         } catch (e) {}
     },
     init: function() {
@@ -170,8 +174,13 @@ KS.AudioManager = {
     },
 
     _canPlay: function() {
-        return KS.audio.initialized && KS.audio.ctx && KS.audio.ctx.state !== 'suspended'
-            && KS.audio.activeNodes < KS.audio.MAX_NODES;
+        if (!KS.audio.initialized || !KS.audio.ctx) return false;
+        if (KS.audio.activeNodes >= KS.audio.MAX_NODES) return false;
+        /* モバイル: resume直後はまだsuspendedの場合がある。再度resumeを試行 */
+        if (KS.audio.ctx.state === 'suspended') {
+            try { KS.audio.ctx.resume(); } catch(e) {}
+        }
+        return true;
     },
     _track: function(osc) {
         KS.audio.activeNodes++;
