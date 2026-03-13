@@ -1,5 +1,5 @@
 /**
- * update.js v1.1.0 — エフェクト更新追加
+ * update.js v1.1.4 — GAMEOVER_ANIM フェーズ追加
  */
 "use strict";
 
@@ -15,6 +15,16 @@
             KS.systems.fx.updateShake();
             KS.systems.fx.updateFloatingTexts();
             KS.systems.fx.updateBgWigs();
+        }
+
+        /* ゲームオーバー演出フェーズ */
+        if (st.current === KS.GameStates.GAMEOVER_ANIM) {
+            st.gameOverAnimTimer--;
+            /* タイマー切れ or パーティクル全消滅で本GAMEOVER画面へ */
+            if (st.gameOverAnimTimer <= 0 || st.particles.length === 0) {
+                st.current = KS.GameStates.GAMEOVER;
+            }
+            return;
         }
 
         if (st.current !== KS.GameStates.PLAYING) return;

@@ -18,7 +18,7 @@ window.KS = {
 
 KS.GameStates = Object.freeze({
     LOADING: 'LOADING', TITLE: 'TITLE', PLAYING: 'PLAYING',
-    GAMEOVER: 'GAMEOVER', PAUSED: 'PAUSED'
+    GAMEOVER: 'GAMEOVER', GAMEOVER_ANIM: 'GAMEOVER_ANIM', PAUSED: 'PAUSED'
 });
 
 /* ========== GameState ========== */
@@ -67,7 +67,8 @@ KS.GameState = class GameState {
 
     triggerGameOver() {
         if (this.current !== KS.GameStates.PLAYING) return;
-        this.current = KS.GameStates.GAMEOVER;
+        this.current = KS.GameStates.GAMEOVER_ANIM;
+        this.gameOverAnimTimer = 150; /* 約2.5秒 @60fps */
         KS.blessings.stopBGM();
         this.clearEffects();
         /* カツラ吹き飛ばし（clearEffects の後） */

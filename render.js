@@ -23,6 +23,29 @@
             case KS.GameStates.PLAYING:
                 renderGame(ctx, st, d);
                 break;
+            case KS.GameStates.GAMEOVER_ANIM:
+                renderGame(ctx, st, d);
+                /* 徐々に暗くなるオーバーレイ */
+                var animProgress = 1 - (st.gameOverAnimTimer / 150);
+                ctx.fillStyle = 'rgba(0, 0, 0, ' + (animProgress * 0.5).toFixed(2) + ')';
+                ctx.fillRect(0, 0, d.CANVAS_W, d.CANVAS_H);
+                /* GAME OVER テキストをフェードイン */
+                if (animProgress > 0.3) {
+                    var textAlpha = Math.min(1, (animProgress - 0.3) / 0.3);
+                    ctx.save();
+                    ctx.globalAlpha = textAlpha;
+                    ctx.font = 'bold 48px Arial';
+                    ctx.fillStyle = '#e74c3c';
+                    ctx.strokeStyle = '#000';
+                    ctx.lineWidth = 5;
+                    ctx.textAlign = 'center';
+                    var textY = d.CANVAS_H * 0.35;
+                    var bounce = Math.sin(animProgress * Math.PI * 2) * 10 * (1 - animProgress);
+                    ctx.strokeText('GAME OVER', d.CANVAS_W / 2, textY + bounce);
+                    ctx.fillText('GAME OVER', d.CANVAS_W / 2, textY + bounce);
+                    ctx.restore();
+                }
+                break;
             case KS.GameStates.GAMEOVER:
                 renderGame(ctx, st, d);
                 KS.uiScreens.drawGameOver(ctx);
