@@ -90,7 +90,7 @@
                     KS.systems.fx.floatText(matchX, matchY - 30, mc + ' COMBO!', '#ff6b6b', 22);
                 }
 
-                KS.AudioManager.playSfx(880, 'sine', 0.3);
+                KS.AudioManager.playSfxMatch();
             }
         }
     };
@@ -132,7 +132,7 @@
             fx.spawnParticles(st.player.x + st.player.w / 2, st.player.y, KS.data.PARTICLE_COUNT_CATCH, 'catch');
             fx.shake(KS.data.SCREEN_SHAKE_CATCH);
             fx.floatText(st.player.x + st.player.w / 2, st.player.y - 20, '+10', '#ffffff', 16);
-            KS.AudioManager.playSfx(440, 'sine', 0.08);
+            KS.AudioManager.playSfxCatch();
             KS.systems.match.check();
         },
         _handleObstacle: function(st, w) {
@@ -140,7 +140,7 @@
             /* 演出: 強めのシェイク + 赤フラッシュテキスト */
             KS.systems.fx.shake(KS.data.SCREEN_SHAKE_OBSTACLE);
             KS.systems.fx.floatText(st.player.x + st.player.w / 2, st.player.y - 20, 'BLOCKED!', '#e74c3c', 20);
-            KS.AudioManager.playSfx(200, 'sawtooth', 0.15);
+            KS.AudioManager.playSfxObstacle();
         },
         _handleBomb: function(st, w) {
             var removed = 0;
@@ -158,7 +158,7 @@
             KS.systems.fx.spawnParticles(st.player.x + st.player.w / 2, st.player.y, KS.data.PARTICLE_COUNT_BOMB, 'bomb');
             KS.systems.fx.shake(KS.data.SCREEN_SHAKE_MATCH);
             KS.systems.fx.floatText(st.player.x + st.player.w / 2, st.player.y - 20, 'BOOM!', '#f39c12', 24);
-            KS.AudioManager.playSfx(660, 'square', 0.2);
+            KS.AudioManager.playSfxBomb();
         }
     };
 

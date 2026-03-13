@@ -120,17 +120,16 @@ KS.GameState = class GameState {
         this.cutIn.active = false;
         this.cutIn.timer = 0;
         this.effects = [];
-        this.particles = [];
         this.floatingTexts = [];
-        this.screenShake = { x: 0, y: 0, timer: 0, intensity: 0 };
-        this.bgWigs = [];
+        /* particles と bgWigs はクリアしない（ゲームオーバー演出で使用中の可能性） */
     }
 
     triggerGameOver() {
         if (this.current !== KS.GameStates.PLAYING) return;
         this.current = KS.GameStates.GAMEOVER;
         KS.blessings.stopBGM();
-        /* カツラ吹き飛ばし */
+        this.clearEffects();
+        /* カツラ吹き飛ばし（clearEffects の後に実行） */
         var stack = this.player.stack;
         for (var ei = 0; ei < stack.length; ei++) {
             this.particles.push({
@@ -138,9 +137,9 @@ KS.GameState = class GameState {
                 y: this.player.y - ei * 30,
                 vx: (Math.random() - 0.5) * 15,
                 vy: -(Math.random() * 10 + 5),
-                life: 90,
-                maxLife: 90,
-                size: 30,
+                life: 120,
+                maxLife: 120,
+                size: 35,
                 type: 'wig',
                 imageKey: stack[ei].imageKey,
                 rotation: 0,
@@ -148,7 +147,8 @@ KS.GameState = class GameState {
                 gravity: 0.3
             });
         }
-        this.clearEffects();
+        /* ゲームオーバーSE */
+        KS.AudioManager.playSfxGameOver();
         if (this.score > this.highScore) {
             this.highScore = this.score;
             try {
@@ -301,25 +301,138 @@ KS.AudioManager = {
         if (!KS.audio.initialized) return;
         var actx = KS.audio.ctx;
         if (!actx || actx.state === 'suspended') return;
-
         type = type || 'sine';
         duration = duration || 0.1;
-
         try {
             var osc = actx.createOscillator();
             var gain = actx.createGain();
             osc.type = type;
             osc.frequency.setValueAtTime(freq, actx.currentTime);
-            gain.gain.setValueAtTime(0.1, actx.currentTime);
+            gain.gain.setValueAtTime(0.15, actx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + duration);
             osc.connect(gain);
             gain.connect(actx.destination);
             osc.start();
             osc.stop(actx.currentTime + duration);
-            osc.onended = function() {
-                osc.disconnect();
-                gain.disconnect();
-            };
+            osc.onended = function() { osc.disconnect(); gain.disconnect(); };
+        } catch (e) {}
+    },
+
+    /* キャッチ音: ポップな上昇音 */
+    playSfxCatch: function() {
+        if (!KS.audio.initialized) return;
+        var actx = KS.audio.ctx;
+        if (!actx || actx.state === 'suspended') return;
+        try {
+            var osc = actx.createOscillator();
+            var gain = actx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, actx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(800, actx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.15, actx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.15);
+            osc.connect(gain); gain.connect(actx.destination);
+            osc.start(); osc.stop(actx.currentTime + 0.15);
+            osc.onended = function() { osc.disconnect(); gain.disconnect(); };
+        } catch (e) {}
+    },
+
+    /* マッチ音: 華やかな上昇和音 */
+    playSfxMatch: function() {
+        if (!KS.audio.initialized) return;
+        var actx = KS.audio.ctx;
+        if (!actx || actx.state === 'suspended') return;
+        var notes = [523, 659, 784, 1047];
+        var t = actx.currentTime;
+        try {
+            for (var i = 0; i < notes.length; i++) {
+                var osc = actx.createOscillator();
+                var gain = actx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(notes[i], t + i * 0.08);
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(0.12, t + i * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+                osc.connect(gain); gain.connect(actx.destination);
+                osc.start(t + i * 0.08);
+                osc.stop(t + 0.5);
+                osc.onended = function() { this.disconnect(); gain.disconnect(); };
+            }
+        } catch (e) {}
+    },
+
+    /* 障害物音: 不快な低ブザー */
+    playSfxObstacle: function() {
+        if (!KS.audio.initialized) return;
+        var actx = KS.audio.ctx;
+        if (!actx || actx.state === 'suspended') return;
+        try {
+            var osc = actx.createOscillator();
+            var osc2 = actx.createOscillator();
+            var gain = actx.createGain();
+            osc.type = 'sawtooth';
+            osc2.type = 'square';
+            osc.frequency.setValueAtTime(150, actx.currentTime);
+            osc2.frequency.setValueAtTime(155, actx.currentTime);
+            gain.gain.setValueAtTime(0.12, actx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.3);
+            osc.connect(gain); osc2.connect(gain); gain.connect(actx.destination);
+            osc.start(); osc2.start();
+            osc.stop(actx.currentTime + 0.3); osc2.stop(actx.currentTime + 0.3);
+            osc.onended = function() { osc.disconnect(); osc2.disconnect(); gain.disconnect(); };
+        } catch (e) {}
+    },
+
+    /* ボム音: 爆発 */
+    playSfxBomb: function() {
+        if (!KS.audio.initialized) return;
+        var actx = KS.audio.ctx;
+        if (!actx || actx.state === 'suspended') return;
+        try {
+            var osc = actx.createOscillator();
+            var gain = actx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, actx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, actx.currentTime + 0.4);
+            gain.gain.setValueAtTime(0.2, actx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.4);
+            osc.connect(gain); gain.connect(actx.destination);
+            osc.start(); osc.stop(actx.currentTime + 0.4);
+            /* ノイズっぽい追加音 */
+            var osc2 = actx.createOscillator();
+            var gain2 = actx.createGain();
+            osc2.type = 'square';
+            osc2.frequency.setValueAtTime(80, actx.currentTime);
+            osc2.frequency.exponentialRampToValueAtTime(20, actx.currentTime + 0.5);
+            gain2.gain.setValueAtTime(0.15, actx.currentTime);
+            gain2.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.5);
+            osc2.connect(gain2); gain2.connect(actx.destination);
+            osc2.start(); osc2.stop(actx.currentTime + 0.5);
+            osc.onended = function() { osc.disconnect(); gain.disconnect(); };
+            osc2.onended = function() { osc2.disconnect(); gain2.disconnect(); };
+        } catch (e) {}
+    },
+
+    /* ゲームオーバー音: 下降音階 */
+    playSfxGameOver: function() {
+        if (!KS.audio.initialized) return;
+        var actx = KS.audio.ctx;
+        if (!actx || actx.state === 'suspended') return;
+        var notes = [523, 440, 349, 262, 196, 131];
+        var t = actx.currentTime;
+        try {
+            for (var i = 0; i < notes.length; i++) {
+                var osc = actx.createOscillator();
+                var gain = actx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(notes[i], t + i * 0.15);
+                gain.gain.setValueAtTime(0.12, t + i * 0.15);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + i * 0.15 + 0.2);
+                osc.connect(gain); gain.connect(actx.destination);
+                osc.start(t + i * 0.15);
+                osc.stop(t + i * 0.15 + 0.2);
+                osc.onended = function() { this.disconnect(); gain.disconnect(); };
+            }
         } catch (e) {}
     }
 };
