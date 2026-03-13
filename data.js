@@ -3,6 +3,7 @@
  * 読み込み順: 2番目（game.js の後）
  * 責務: 調整可能な全数値の一元管理
  * サイズ目安: ~5KB
+ * 更新: v1.0.1 — webp対応、obstacle/bombエフェクト方式変更
  */
 "use strict";
 
@@ -20,16 +21,16 @@
      * ======================================== */
     d.PLAYER_W = 75;
     d.PLAYER_H = 75;
-    d.PLAYER_GROUND_OFFSET = 100;  /* キャンバス下端からの距離 */
-    d.PLAYER_LERP_SPEED = 0.4;    /* D-4結論: 高速lerp */
+    d.PLAYER_GROUND_OFFSET = 100;
+    d.PLAYER_LERP_SPEED = 0.4;
 
     /* ========================================
      * カツラ定数
      * ======================================== */
     d.WIG_W = 90;
     d.WIG_H = 60;
-    d.STACK_OFFSET = 28;           /* スタック1段あたりの高さ */
-    d.STACK_GAME_OVER_Y = 30;     /* これより上にスタックが到達したらゲームオーバー */
+    d.STACK_OFFSET = 28;
+    d.STACK_GAME_OVER_Y = 30;
 
     /* ========================================
      * カツラタイプ定義
@@ -44,16 +45,20 @@
 
     /* ========================================
      * 特殊アイテム定義
+     * obstacle: アフロの色調変化で表現
+     * bomb: ブロンドを光らせて表現
      * ======================================== */
     d.SPECIAL_TYPES = {
         obstacle: {
             id: 'obstacle',
-            spawnRate: 0.10,   /* 10% */
+            baseImage: 'wig_afro',      /* 元画像キー */
+            spawnRate: 0.10,
             minLevel: 2
         },
         bomb: {
             id: 'bomb',
-            spawnRate: 0.08,   /* 8% */
+            baseImage: 'wig_blonde',    /* 元画像キー */
+            spawnRate: 0.08,
             minLevel: 3
         }
     };
@@ -69,7 +74,6 @@
         BOMB_CLEAR_PER_OBSTACLE: 50
     };
 
-    /* マッチ数 → 基本スコアの関数 */
     d.getMatchScore = function(matchCount) {
         if (matchCount >= 5) return d.SCORE.MATCH_5_PLUS;
         if (matchCount === 4) return d.SCORE.MATCH_4;
@@ -80,7 +84,7 @@
     /* ========================================
      * コンボテーブル（D-6結論）
      * ======================================== */
-    d.COMBO_WINDOW = 300;          /* 5秒 = 300フレーム @60fps */
+    d.COMBO_WINDOW = 300;
     d.COMBO_MULTIPLIER = [1, 1.5, 2, 3, 5];
 
     d.getComboMultiplier = function(comboCount) {
@@ -90,7 +94,6 @@
 
     /* ========================================
      * 難易度テーブル（D-2結論: 経過時間ベース）
-     * time = 秒, fallSpeed = px/frame, spawnInterval = frames, wigTypeCount = 使用するカツラ種類数
      * ======================================== */
     d.DIFFICULTY_TABLE = [
         { time:   0, fallSpeed: 2.0, spawnInterval: 72, wigTypeCount: 3, level: 1 },
@@ -105,39 +108,35 @@
     /* ========================================
      * 演出定数
      * ======================================== */
-    d.CUTIN_DURATION = 50;         /* カットイン表示フレーム数 */
-    d.HAPPY_DURATION = 90;         /* 喜び表情のフレーム数 */
+    d.CUTIN_DURATION = 50;
+    d.HAPPY_DURATION = 90;
 
     /* ========================================
-     * 画像マニフェスト
-     * GitHub配置後にパスを更新する
+     * 画像マニフェスト（webp対応）
+     * obstacle/bomb は含めない（実行時にエフェクト生成）
      * ======================================== */
     d.IMAGE_MANIFEST = {
         /* プレイヤー */
-        player:       'assets/img/player.png',
-        playerHappy:  'assets/img/player_happy.png',
+        player:        'assets/img/player.webp',
+        playerHappy:   'assets/img/player_happy.webp',
 
         /* カツラ */
-        regent:       'assets/img/wig_regent.png',
-        blonde:       'assets/img/wig_blonde.png',
-        red:          'assets/img/wig_red.png',
-        bob:          'assets/img/wig_bob.png',
-        afro:         'assets/img/wig_afro.png',
-
-        /* 特殊 */
-        obstacle:     'assets/img/wig_obstacle.png',
-        bomb:         'assets/img/wig_bomb.png',
+        wig_regent:    'assets/img/wig_regent.webp',
+        wig_blonde:    'assets/img/wig_blonde.webp',
+        wig_red:       'assets/img/wig_red.webp',
+        wig_bob:       'assets/img/wig_bob.webp',
+        wig_afro:      'assets/img/wig_afro.webp',
 
         /* カットイン（喜び） */
-        happy_afro:    'assets/img/happy_afro.png',
-        happy_red:     'assets/img/happy_red.png',
-        happy_regent:  'assets/img/happy_regent.png',
-        happy_bob:     'assets/img/happy_bob.png',
-        happy_blonde:  'assets/img/happy_blonde.png'
+        happy_afro:    'assets/img/happy_afro.webp',
+        happy_red:     'assets/img/happy_red.webp',
+        happy_regent:  'assets/img/happy_regent.webp',
+        happy_bob:     'assets/img/happy_bob.webp',
+        happy_blonde:  'assets/img/happy_blonde.webp'
     };
 
     /* ========================================
-     * Canvas論理サイズ適用（game.jsのCanvasManagerを使う）
+     * Canvas論理サイズ適用
      * ======================================== */
     KS.CanvasManager.applyLogicalSize();
 

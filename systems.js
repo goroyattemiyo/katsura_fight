@@ -1,8 +1,7 @@
 /**
  * systems.js — 当たり判定、コンボ、難易度制御、スコアリング
  * 読み込み順: 5番目
- * 責務: ゲームメカニクスのコアロジック
- * サイズ目安: ~8KB
+ * 更新: v1.0.1 — imageKey対応
  */
 "use strict";
 
@@ -10,7 +9,6 @@
 
     /* ========================================
      * 難易度制御
-     * D-2結論: 経過時間ベース
      * ======================================== */
     KS.systems.difficulty = {
         getCurrent: function() {
@@ -32,7 +30,6 @@
 
     /* ========================================
      * コンボシステム
-     * D-6結論: 時間制限コンボ（5秒窓）
      * ======================================== */
     KS.systems.combo = {
         update: function() {
@@ -61,14 +58,14 @@
         },
 
         reset: function() {
+            if (!KS.state) return;
             KS.state.comboCount = 0;
             KS.state.comboTimer = 0;
         }
     };
 
     /* ========================================
-     * マッチ判定
-     * D-1結論: 最上部連続一致（可変長）
+     * マッチ判定 — 最上部連続一致（可変長）
      * ======================================== */
     KS.systems.match = {
         check: function() {
@@ -93,20 +90,16 @@
                 var matchedType = topType;
                 stack.splice(stack.length - count, count);
 
-                /* スコア加算（コンボ倍率込み） */
                 var points = KS.systems.combo.onMatch(count);
                 KS.state.score += points;
 
-                /* 喜び演出 */
                 KS.state.player.isHappy = true;
                 KS.state.player.happyTimer = KS.data.HAPPY_DURATION;
 
-                /* カットイン */
                 KS.state.cutIn.active = true;
                 KS.state.cutIn.timer = KS.data.CUTIN_DURATION;
                 KS.state.cutIn.wigType = matchedType;
 
-                /* SE */
                 KS.AudioManager.playSfx(1200, 'triangle', 0.5);
 
                 return count;
@@ -118,8 +111,6 @@
 
     /* ========================================
      * 当たり判定
-     * B-1対策: スタック最上部のWIG_H範囲のみ
-     * B-3対策: 同フレーム複数キャッチは許容（最上部マッチで対応）
      * ======================================== */
     KS.systems.collision = {
         check: function() {
@@ -127,10 +118,8 @@
             var p = st.player;
             var d = KS.data;
 
-            /* スタック最上部のY座標 */
             var stackTopY = p.y - (p.stack.length * d.STACK_OFFSET);
 
-            /* 当たり判定の領域: スタック最上部からWIG_H分のみ（B-1対策） */
             var hitTop = stackTopY - d.WIG_H * 0.5;
             var hitBottom = stackTopY + d.WIG_H * 0.5;
             var hitLeft = p.x + (p.w - d.WIG_W) / 2;
@@ -144,11 +133,9 @@
                 var wLeft = w.x;
                 var wRight = w.x + d.WIG_W;
 
-                /* AABB判定 */
                 if (wCenterY >= hitTop && wCenterY <= hitBottom + d.WIG_H &&
                     wRight > hitLeft && wLeft < hitRight) {
 
-                    /* キャッチ成功 */
                     w.alive = false;
 
                     if (w.isBomb) {
@@ -161,23 +148,28 @@
                 }
             }
 
-            /* 死んだカツラを除去 */
             st.fallingWigs = st.fallingWigs.filter(function(w) { return w.alive; });
         },
 
         _handleNormal: function(w) {
             var st = KS.state;
-            st.player.stack.push({ type: w.type, isObstacle: false });
+            st.player.stack.push({
+                type: w.type,
+                imageKey: w.imageKey,
+                isObstacle: false
+            });
             st.score += KS.data.SCORE.CATCH;
             KS.AudioManager.playSfx(440, 'sine', 0.1);
-
-            /* マッチ判定 */
             KS.systems.match.check();
         },
 
         _handleObstacle: function(w) {
             var st = KS.state;
-            st.player.stack.push({ type: w.type, isObstacle: true });
+            st.player.stack.push({
+                type: 'obstacle',
+                imageKey: 'obstacle',
+                isObstacle: true
+            });
             KS.AudioManager.playSfx(80, 'sawtooth', 0.4);
         },
 
