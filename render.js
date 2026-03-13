@@ -24,27 +24,7 @@
                 renderGame(ctx, st, d);
                 break;
             case KS.GameStates.GAMEOVER_ANIM:
-                renderGame(ctx, st, d);
-                /* 徐々に暗くなるオーバーレイ */
-                var animProgress = 1 - (st.gameOverAnimTimer / 150);
-                ctx.fillStyle = 'rgba(0, 0, 0, ' + (animProgress * 0.5).toFixed(2) + ')';
-                ctx.fillRect(0, 0, d.CANVAS_W, d.CANVAS_H);
-                /* GAME OVER テキストをフェードイン */
-                if (animProgress > 0.3) {
-                    var textAlpha = Math.min(1, (animProgress - 0.3) / 0.3);
-                    ctx.save();
-                    ctx.globalAlpha = textAlpha;
-                    ctx.font = 'bold 48px Arial';
-                    ctx.fillStyle = '#e74c3c';
-                    ctx.strokeStyle = '#000';
-                    ctx.lineWidth = 5;
-                    ctx.textAlign = 'center';
-                    var textY = d.CANVAS_H * 0.35;
-                    var bounce = Math.sin(animProgress * Math.PI * 2) * 10 * (1 - animProgress);
-                    ctx.strokeText('GAME OVER', d.CANVAS_W / 2, textY + bounce);
-                    ctx.fillText('GAME OVER', d.CANVAS_W / 2, textY + bounce);
-                    ctx.restore();
-                }
+                renderGameOverAnim(ctx, st, d);
                 break;
             case KS.GameStates.GAMEOVER:
                 renderGame(ctx, st, d);
@@ -252,6 +232,75 @@
             ctx.fillText(ft.text, 0, 0);
             ctx.restore();
         }
+    }
+
+    function renderGameOverAnim(ctx, st, d) {
+        ctx.save();
+        if (st.screenShake && st.screenShake.timer > 0) {
+            ctx.translate(st.screenShake.x, st.screenShake.y);
+        }
+
+        /* 背景 */
+        var grad = ctx.createLinearGradient(0, 0, 0, d.CANVAS_H);
+        grad.addColorStop(0, d.BG_GRAD_TOP);
+        grad.addColorStop(1, d.BG_GRAD_BOTTOM);
+        ctx.fillStyle = grad;
+        ctx.fillRect(-20, -20, d.CANVAS_W + 40, d.CANVAS_H + 40);
+        renderBgWigs(ctx, st);
+
+        /* 地面 */
+        var groundY = d.CANVAS_H - d.GROUND_HEIGHT;
+        ctx.fillStyle = d.GROUND_COLOR;
+        ctx.fillRect(0, groundY, d.CANVAS_W, d.GROUND_HEIGHT);
+        ctx.strokeStyle = d.GROUND_LINE_COLOR;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, groundY); ctx.lineTo(d.CANVAS_W, groundY); ctx.stroke();
+
+        /* プレイヤー（悲しそうに） */
+        renderPlayer(ctx, st, d);
+
+        /* 吹き飛ぶカツラ */
+        var stack = st.player.stack;
+        for (var i = 0; i < stack.length; i++) {
+            var item = stack[i];
+            if (!item.exploding || item.ealpha <= 0) continue;
+            var img = KS.assets.images[item.imageKey];
+            if (!img) continue;
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, item.ealpha);
+            ctx.translate(item.ex + d.WIG_STACK_W / 2, item.ey + d.WIG_STACK_H / 2);
+            ctx.rotate(item.erot);
+            ctx.drawImage(img, -d.WIG_STACK_W / 2, -d.WIG_STACK_H / 2, d.WIG_STACK_W, d.WIG_STACK_H);
+            ctx.restore();
+        }
+
+        /* パーティクル */
+        renderParticles(ctx, st);
+        renderFloatingTexts(ctx, st);
+        KS.ui.drawHUD(ctx);
+
+        /* 暗転オーバーレイ */
+        var animProgress = 1 - (st.gameOverAnimTimer / 150);
+        ctx.fillStyle = 'rgba(0, 0, 0, ' + (animProgress * 0.5).toFixed(2) + ')';
+        ctx.fillRect(-20, -20, d.CANVAS_W + 40, d.CANVAS_H + 40);
+
+        /* GAME OVER テキスト */
+        if (animProgress > 0.3) {
+            var textAlpha = Math.min(1, (animProgress - 0.3) / 0.3);
+            ctx.globalAlpha = textAlpha;
+            ctx.font = 'bold 52px Arial';
+            ctx.fillStyle = '#e74c3c';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 5;
+            ctx.textAlign = 'center';
+            var textY = d.CANVAS_H * 0.35;
+            var bounce = Math.sin(animProgress * Math.PI * 3) * 15 * (1 - animProgress);
+            ctx.strokeText('GAME OVER', d.CANVAS_W / 2, textY + bounce);
+            ctx.fillText('GAME OVER', d.CANVAS_W / 2, textY + bounce);
+        }
+
+        ctx.restore();
     }
 
     KS.renderFn = render;

@@ -1,5 +1,5 @@
 /**
- * update.js v1.1.4 — GAMEOVER_ANIM フェーズ追加
+ * update.js v1.1.5 — GAMEOVER_ANIM: スタック物理演算
  */
 "use strict";
 
@@ -20,8 +20,26 @@
         /* ゲームオーバー演出フェーズ */
         if (st.current === KS.GameStates.GAMEOVER_ANIM) {
             st.gameOverAnimTimer--;
-            /* タイマー切れ or パーティクル全消滅で本GAMEOVER画面へ */
-            if (st.gameOverAnimTimer <= 0 || st.particles.length === 0) {
+
+            /* スタックアイテムの物理更新 */
+            var stack = st.player.stack;
+            var allGone = true;
+            for (var i = 0; i < stack.length; i++) {
+                var item = stack[i];
+                if (!item.exploding) continue;
+                item.ex += item.evx;
+                item.ey += item.evy;
+                item.evy += item.egravity;
+                item.evx *= 0.99;
+                item.erot += item.erotSpeed;
+                /* フェードアウト（下に落ちていったら） */
+                if (item.ey > KS.data.CANVAS_H) {
+                    item.ealpha -= 0.05;
+                }
+                if (item.ealpha > 0) allGone = false;
+            }
+
+            if (st.gameOverAnimTimer <= 0 || allGone) {
                 st.current = KS.GameStates.GAMEOVER;
             }
             return;

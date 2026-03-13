@@ -71,20 +71,29 @@ KS.GameState = class GameState {
         this.gameOverAnimTimer = 150; /* 約2.5秒 @60fps */
         KS.blessings.stopBGM();
         this.clearEffects();
-        /* カツラ吹き飛ばし（clearEffects の後） */
+        /* カツラ吹き飛ばし: スタックアイテム自体に物理パラメータを付与 */
         var stack = this.player.stack;
+        var d = KS.data;
         for (var i = 0; i < stack.length; i++) {
-            this.particles.push({
-                x: this.player.x + this.player.w / 2,
-                y: this.player.y - i * 30,
-                vx: (Math.random() - 0.5) * 18,
-                vy: -(Math.random() * 12 + 5),
-                life: 120, maxLife: 120, size: 35,
-                type: 'wig', imageKey: stack[i].imageKey,
-                rotation: 0,
-                rotSpeed: (Math.random() - 0.5) * 0.4,
-                gravity: 0.35
-            });
+            var baseX = this.player.x + (this.player.w - d.WIG_STACK_W) / 2;
+            var baseY = this.player.y + d.PLAYER_HEAD_TOP_OFFSET - (i + 1) * d.STACK_OFFSET;
+            stack[i].exploding = true;
+            stack[i].ex = baseX;
+            stack[i].ey = baseY;
+            stack[i].evx = (Math.random() - 0.5) * 20;
+            stack[i].evy = -(Math.random() * 8 + 4 + i * 2);
+            stack[i].erot = 0;
+            stack[i].erotSpeed = (Math.random() - 0.5) * 0.5;
+            stack[i].egravity = 0.4;
+            stack[i].ealpha = 1.0;
+        }
+        /* 追加パーティクル（キラキラ） */
+        if (KS.systems.fx) {
+            KS.systems.fx.spawnParticles(
+                this.player.x + this.player.w / 2,
+                this.player.y - stack.length * d.STACK_OFFSET / 2,
+                20, 'match'
+            );
         }
         KS.AudioManager.playSfxGameOver();
         if (this.score > this.highScore) {
